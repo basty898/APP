@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Subscription, Category, User } from '../types';
 import { MOCK_SUBSCRIPTIONS, CATEGORY_STYLES } from '../constants';
@@ -7,11 +6,21 @@ import SubscriptionModal from './SubscriptionModal';
 import CategoryChart from './CategoryChart';
 import BottomNav from './BottomNav';
 import ProfileScreen from './ProfileScreen';
-import { Search } from 'lucide-react';
+import { Search, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 type View = 'dashboard' | 'subscriptions' | 'profile';
+
+const ZenSubLogo = () => (
+    <div className="flex items-center gap-2">
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-green to-blue-400 flex items-center justify-center">
+             <div className="w-5 h-5 rounded-full bg-app-background/80"></div>
+        </div>
+        <span className="font-bold text-xl text-text-primary">ZenSub</span>
+    </div>
+);
+
 
 interface DashboardProps {
     user: User;
@@ -23,8 +32,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
     const [subscriptionToDelete, setSubscriptionToDelete] = useState<Subscription | null>(null);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
     const [activeView, setActiveView] = useState<View>('dashboard');
 
     const handleAddSubscription = () => {
@@ -53,12 +60,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         setEditingSubscription(null);
     };
 
-    const filteredSubscriptions = useMemo(() => {
-        return subscriptions
-            .filter(sub => sub.name.toLowerCase().includes(searchTerm.toLowerCase()))
-            .filter(sub => selectedCategory ? sub.category === selectedCategory : true)
-            .sort((a, b) => a.renewalDate.getTime() - b.renewalDate.getTime());
-    }, [subscriptions, searchTerm, selectedCategory]);
+    const sortedSubscriptions = useMemo(() => {
+        return [...subscriptions].sort((a, b) => a.renewalDate.getTime() - b.renewalDate.getTime());
+    }, [subscriptions]);
+
 
     const totalMonthlyCost = useMemo(() => {
         return subscriptions.reduce((total, sub) => {
@@ -72,8 +77,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     
     const upcomingRenewal = useMemo(() => {
         const today = new Date();
-        return subscriptions.filter(s => s.renewalDate >= today).sort((a,b) => a.renewalDate.getTime() - b.renewalDate.getTime())[0];
-    }, [subscriptions]);
+        return sortedSubscriptions.find(s => s.renewalDate >= today);
+    }, [sortedSubscriptions]);
 
     const chartData = useMemo(() => {
         const categoryTotals: { [key: string]: number } = {};
@@ -92,114 +97,113 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
     const chartColors = useMemo(() => chartData.map(entry => {
         const categoryKey = entry.name as keyof typeof CATEGORY_STYLES;
-        const colorClass = CATEGORY_STYLES[categoryKey].color;
-        const colorMap: { [key: string]: string } = {
-            'brand-red': '#EF4444', 'brand-green': '#10B981', 'brand-blue': '#3B82F6',
-            'brand-purple': '#8B5CF6', 'brand-orange': '#F97316', 'brand-yellow': '#EAB308', 'brand-gray': '#6B7280'
-        };
-        return colorMap[colorClass] || '#000000';
+        return CATEGORY_STYLES[categoryKey].chartColor || '#000000';
       }), [chartData]);
+      
+    const renderContent = () => {
+        if (activeView === 'profile') {
+            return <ProfileScreen user={user} onLogout={onLogout} />;
+        }
+        
+        if (activeView === 'subscriptions') {
+            return (
+                 <div className="space-y-3">
+                    <div className="flex justify-between items-center mb-2">
+                        <h2 className="text-xl font-bold text-text-primary">Suscripciones</h2>
+                        <button className="text-text-secondary hover:text-text-primary">
+                            <Search size={22} />
+                        </button>
+                    </div>
+                    {sortedSubscriptions.length > 0 ? sortedSubscriptions.map(sub => (
+                        <SubscriptionCard 
+                            key={sub.id} 
+                            subscription={sub} 
+                            onClick={() => handleEditSubscription(sub)}
+                        />
+                    )) : <p className="text-center text-text-secondary mt-8">No se encontraron suscripciones.</p>}
+                </div>
+            )
+        }
+
+        // Dashboard View
+        return (
+            <>
+                <p className="text-lg text-text-secondary mb-6">Hola, {user.firstName}</p>
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="bg-card p-4 rounded-2xl shadow-sm shadow-shadow-light">
+                        <p className="text-sm text-text-secondary mb-1">Tu Gasto Mensual Total:</p>
+                        <div className="w-8 h-0.5 bg-brand-green rounded-full mb-2"></div>
+                        <p className="text-2xl font-bold text-text-primary">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(totalMonthlyCost)}</p>
+                    </div>
+                    <div className="bg-card p-4 rounded-2xl shadow-sm shadow-shadow-light">
+                        <p className="text-sm text-text-secondary mb-2">Próximas Renovaciones:</p>
+                        {upcomingRenewal ? (
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-brand-purple flex-shrink-0"></div>
+                                <p className="text-sm font-semibold text-text-primary truncate">{upcomingRenewal.name} - {format(upcomingRenewal.renewalDate, 'dd MMM', {locale: es})}</p>
+                             </div>
+                        ) : (
+                            <p className="text-lg font-bold text-text-primary">-</p>
+                        )}
+                    </div>
+                </div>
+
+                <div className="bg-card p-4 rounded-2xl shadow-sm shadow-shadow-light mb-6">
+                    <div className="text-center">
+                        <h3 className="text-lg font-semibold text-text-primary">Flujo de Gastos por Categoría</h3>
+                        <div className="w-16 h-0.5 bg-gray-200 rounded-full mt-2 mb-1 mx-auto"></div>
+                    </div>
+                    <div className="h-48">
+                       <CategoryChart data={chartData} colors={chartColors} />
+                    </div>
+                </div>
+                
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-bold text-text-primary">Suscripciones Activas</h2>
+                     <button className="text-text-secondary hover:text-text-primary">
+                        <Search size={22} />
+                    </button>
+                </div>
+                 <div className="space-y-3">
+                    {sortedSubscriptions.slice(0, 3).map(sub => (
+                        <SubscriptionCard 
+                            key={sub.id} 
+                            subscription={sub} 
+                        />
+                    ))}
+                </div>
+            </>
+        )
+    }
 
     return (
-        <div className="min-h-screen flex flex-col relative">
-            <main className="flex-grow overflow-y-auto p-5 pb-32">
-                 {activeView === 'profile' ? (
-                    <ProfileScreen user={user} onLogout={onLogout} />
-                ) : (
-                    <>
-                        <header className="mb-6">
-                            <h1 className="text-3xl font-bold text-text-primary">Hola, {user.firstName}!</h1>
-                            <p className="text-text-secondary">Bienvenido de vuelta.</p>
-                        </header>
-                
-                        {activeView === 'dashboard' && (
-                            <>
-                                <div className="grid grid-cols-2 gap-4 mb-6">
-                                    <div className="bg-accent-blue-light p-4 rounded-2xl">
-                                        <p className="text-sm text-text-secondary">Total Mensual:</p>
-                                        <p className="text-2xl font-bold text-text-primary">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(totalMonthlyCost)}</p>
-                                    </div>
-                                    <div className="bg-accent-orange-light p-4 rounded-2xl">
-                                        <p className="text-sm text-text-secondary">Próxima Renovación:</p>
-                                        {upcomingRenewal ? (
-                                            <p className="text-lg font-bold text-text-primary">{upcomingRenewal.name} <span className="text-base font-medium">{format(upcomingRenewal.renewalDate, 'dd MMM', {locale: es})}</span></p>
-                                        ) : (
-                                            <p className="text-lg font-bold text-text-primary">-</p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="bg-card p-4 rounded-2xl shadow-sm mb-6">
-                                    <h3 className="text-lg font-semibold text-text-primary mb-2">Gastos por Categoría</h3>
-                                    <div className="flex items-center gap-4 h-32">
-                                        <div className="w-1/2 h-full">
-                                        <CategoryChart data={chartData} colors={chartColors} />
-                                        </div>
-                                        <div className="w-1/2 space-y-1 text-xs">
-                                        {chartData.map((entry, index) => (
-                                            <div key={index} className="flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: chartColors[index] }} />
-                                            <span className="text-text-secondary truncate">{entry.name}</span>
-                                            <span className="font-bold text-text-primary ml-auto">{`${(entry.percent * 100).toFixed(0)}%`}</span>
-                                            </div>
-                                        ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-
-                        <h2 className="text-xl font-bold text-text-primary mb-4">
-                            {activeView === 'dashboard' ? 'Próximas Renovaciones' : 'Todas las Suscripciones'}
-                        </h2>
-                        
-                        <div className="flex overflow-x-auto space-x-3 mb-4 pb-2 -mx-5 px-5">
-                            {Object.values(Category).map(cat => {
-                                const Icon = CATEGORY_STYLES[cat].icon;
-                                const isSelected = selectedCategory === cat;
-                                return (
-                                    <button key={cat} onClick={() => setSelectedCategory(prev => prev === cat ? null : cat)}
-                                        className={`flex-shrink-0 flex items-center gap-2 p-2 px-3 rounded-full text-sm transition-colors ${isSelected ? 'bg-text-primary text-white' : 'bg-card'}`}>
-                                        <Icon size={16} />
-                                        <span>{cat}</span>
-                                    </button>
-                                )
-                            })}
-                        </div>
-
-
-                        <div className="relative mb-6">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                            <input
-                                type="text"
-                                placeholder="Buscar..."
-                                value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                                className="w-full pl-12 pr-4 py-3 border-none bg-card rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-purple"
-                            />
-                        </div>
-
-                        <div className="space-y-4">
-                            {filteredSubscriptions.length > 0 ? filteredSubscriptions.map(sub => (
-                                <SubscriptionCard 
-                                    key={sub.id} 
-                                    subscription={sub} 
-                                    onEdit={() => handleEditSubscription(sub)} 
-                                    onDelete={() => setSubscriptionToDelete(sub)}
-                                />
-                            )) : <p className="text-center text-text-secondary mt-8">No se encontraron suscripciones.</p>}
-                        </div>
-                    </>
-                )}
+        <div className="min-h-screen flex flex-col relative pb-32">
+             <header className="flex justify-start items-center p-5 pt-8">
+                <ZenSubLogo />
+            </header>
+            
+            <main className="flex-grow overflow-y-auto px-5">
+                 {renderContent()}
             </main>
 
-            <BottomNav activeView={activeView} setActiveView={setActiveView} onAddClick={handleAddSubscription} />
+             {activeView === 'subscriptions' && (
+                <button
+                    onClick={handleAddSubscription}
+                    className="fixed bottom-28 right-8 w-16 h-16 bg-brand-green text-white rounded-2xl flex items-center justify-center shadow-lg transform transition-transform hover:scale-110 z-20"
+                    aria-label="Añadir Suscripción"
+                >
+                    <Plus size={32} />
+                </button>
+            )}
+            
+            <BottomNav activeView={activeView} setActiveView={setActiveView} />
             
             {isModalOpen && (
                 <SubscriptionModal
                     isOpen={isModalOpen}
                     onClose={() => setIsModalOpen(false)}
                     onSave={handleSaveSubscription}
+                    onDelete={(sub) => setSubscriptionToDelete(sub)}
                     subscription={editingSubscription}
                 />
             )}

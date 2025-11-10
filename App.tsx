@@ -19,8 +19,8 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="bg-background font-sans text-text-primary">
-       <div className="max-w-md mx-auto bg-background">
+    <div className="bg-app-background font-sans text-text-primary">
+       <div className="max-w-md mx-auto bg-app-background min-h-screen">
         {isAuthenticated && user ? (
           <Dashboard user={user} onLogout={handleLogout} />
         ) : (

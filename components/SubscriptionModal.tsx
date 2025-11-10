@@ -1,21 +1,22 @@
+
 import React, { useState, useEffect } from 'react';
 import { Subscription, Category, Currency, Period, PaymentMethod } from '../types';
-import { X, Save } from 'lucide-react';
-import { CATEGORY_STYLES } from '../constants';
+import { X, Save, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface SubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (subscription: Subscription) => void;
+  onDelete: (subscription: Subscription) => void;
   subscription: Subscription | null;
 }
 
-const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, onSave, subscription }) => {
+const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, onSave, onDelete, subscription }) => {
   const [formData, setFormData] = useState<Partial<Subscription>>({});
   const [error, setError] = useState<string | null>(null);
 
-  const inputStyle = "mt-1 block w-full border-transparent bg-gray-100 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-brand-purple focus:bg-white transition";
+  const inputStyle = "mt-1 block w-full border-transparent bg-gray-100 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-brand-green focus:bg-white transition";
 
   useEffect(() => {
     setError(null);
@@ -55,22 +56,29 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, 
         setError('El nombre del servicio es obligatorio.');
         return;
     }
-    if (!formData.amount || formData.amount < 1) {
+    if (formData.amount === undefined || formData.amount < 1) {
         setError('El monto debe ser un número positivo mayor o igual a 1.');
         return;
     }
     setError(null);
     onSave(formData as Subscription);
   };
+
+  const handleDelete = () => {
+    if (subscription) {
+        onDelete(subscription);
+        onClose();
+    }
+  }
   
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
         <div className="p-6 border-b flex justify-between items-center">
-          <h2 className="text-2xl font-bold">{subscription ? 'Editar' : 'Añadir'} Suscripción</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100"><X size={24} /></button>
+          <h2 className="text-2xl font-bold text-text-primary">{subscription ? 'Editar' : 'Añadir'} Suscripción</h2>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 text-text-secondary"><X size={24} /></button>
         </div>
         <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto p-6 space-y-4">
           <div>
@@ -135,20 +143,31 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, 
         </form>
         <div className="p-6 bg-gray-50 border-t rounded-b-2xl">
           {error && <p className="text-sm text-brand-red text-center mb-3">{error}</p>}
-          <div className="flex justify-end gap-4">
-            <button 
-                onClick={onClose} 
-                className="px-6 py-3 bg-red-100 text-brand-red rounded-xl hover:bg-red-200 font-semibold transition"
-            >
-                Cancelar
-            </button>
-            <button 
-              type="submit"
-              onClick={handleSubmit} 
-              className="px-6 py-3 text-white rounded-xl flex items-center justify-center gap-2 transition-opacity hover:opacity-90 font-semibold bg-gradient-to-br from-brand-green to-emerald-500 shadow-md"
-            >
-              <Save size={18} /> {subscription ? 'Aplicar Cambios' : 'Guardar'}
-            </button>
+          <div className="flex justify-between items-center gap-4">
+            {subscription && (
+                <button
+                    onClick={handleDelete}
+                    className="p-3 text-brand-red rounded-xl hover:bg-red-100 font-semibold transition"
+                    aria-label="Eliminar Suscripción"
+                >
+                    <Trash2 size={20} />
+                </button>
+            )}
+            <div className="flex-grow flex justify-end gap-3">
+                 <button 
+                    onClick={onClose} 
+                    className="px-6 py-3 bg-gray-200 text-text-secondary rounded-xl hover:bg-gray-300 font-semibold transition"
+                >
+                    Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  onClick={handleSubmit} 
+                  className="px-6 py-3 bg-brand-green text-white rounded-xl flex items-center justify-center gap-2 transition-opacity hover:opacity-90 font-semibold shadow-md"
+                >
+                  <Save size={18} /> {subscription ? 'Aplicar Cambios' : 'Guardar'}
+                </button>
+            </div>
           </div>
         </div>
       </div>

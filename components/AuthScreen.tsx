@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { User } from '../types';
 import { Building, User as UserIcon, Lock, Mail, Phone } from 'lucide-react';
@@ -73,7 +74,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-purple"
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green"
                     placeholder="Correo Electrónico"
                     required
                 />
@@ -84,12 +85,12 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-purple"
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green"
                     placeholder="Contraseña"
                     required
                 />
             </div>
-            <a href="#" className="text-sm text-brand-purple hover:underline text-right block">Olvidé mi contraseña</a>
+            <a href="#" className="text-sm text-brand-green hover:underline text-right block">Olvidé mi contraseña</a>
              <button
                 type="submit"
                 className="w-full bg-text-primary text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-text-primary transition-all"
@@ -101,7 +102,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
             <p className="text-sm text-text-secondary mb-2">¿No tienes cuenta?</p>
             <button 
                 onClick={() => setView('register')}
-                className="w-full bg-brand-green text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green transition-all transform hover:scale-105"
+                className="w-full bg-brand-green text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green transition-all"
             >
                 Regístrate
             </button>
@@ -121,27 +122,27 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
         <form onSubmit={handleRegister} className="space-y-3">
             <div className="relative">
                 <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input type="text" placeholder="Nombre" value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg" required/>
+                <input type="text" placeholder="Nombre" value={firstName} onChange={e => setFirstName(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green" required/>
             </div>
             <div className="relative">
                 <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input type="text" placeholder="Apellido" value={lastName} onChange={e => setLastName(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg" required/>
+                <input type="text" placeholder="Apellido" value={lastName} onChange={e => setLastName(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green" required/>
             </div>
             <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input type="email" placeholder="Correo Electrónico" value={registerEmail} onChange={e => setRegisterEmail(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg" required/>
+                <input type="email" placeholder="Correo Electrónico" value={registerEmail} onChange={e => setRegisterEmail(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green" required/>
             </div>
             <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input type="password" placeholder="Contraseña" value={registerPassword} onChange={e => setRegisterPassword(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg" required/>
+                <input type="password" placeholder="Contraseña" value={registerPassword} onChange={e => setRegisterPassword(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green" required/>
             </div>
             <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input type="password" placeholder="Confirmar Contraseña" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg" required/>
+                <input type="password" placeholder="Confirmar Contraseña" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green" required/>
             </div>
              <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input type="tel" placeholder="Número de Teléfono (Opcional)" value={phone} onChange={e => setPhone(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg" />
+                <input type="tel" placeholder="Número de Teléfono (Opcional)" value={phone} onChange={e => setPhone(e.target.value)} className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green" />
             </div>
              <button
                 type="submit"
@@ -151,13 +152,13 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLoginSuccess }) => {
             </button>
         </form>
          <div className="text-center">
-            <p className="text-sm text-text-secondary">¿Ya tienes cuenta? <button onClick={() => setView('login')} className="font-semibold text-brand-purple hover:underline">Iniciar Sesión</button></p>
+            <p className="text-sm text-text-secondary">¿Ya tienes cuenta? <button onClick={() => setView('login')} className="font-semibold text-brand-green hover:underline">Iniciar Sesión</button></p>
         </div>
     </div>
   )
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-gradient-to-br from-blue-50 to-purple-50 p-4">
+    <div className="min-h-screen flex flex-col justify-center items-center bg-app-background p-4">
       {error && <p className="text-brand-red text-sm text-center mb-4">{error}</p>}
       {view === 'login' ? renderLogin() : renderRegister()}
     </div>

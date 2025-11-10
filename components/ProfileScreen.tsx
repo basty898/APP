@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-// Fix: Import User type from types.ts and alias it to UserType to resolve type error.
-// The original code was incorrectly importing User from lucide-react (an icon component) as a type.
 import { User as UserType } from '../types';
-import { User as UserIcon, Mail, Phone, LogOut, Save } from 'lucide-react';
+import { User as UserIcon, Mail, Phone, LogOut, Save, Lock, KeyRound } from 'lucide-react';
 
 interface ProfileScreenProps {
   user: UserType;
@@ -12,6 +10,12 @@ interface ProfileScreenProps {
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) => {
   const [editableUser, setEditableUser] = useState<UserType>(user);
   const [hasChanges, setHasChanges] = useState(false);
+  
+  const [showPasswordFields, setShowPasswordFields] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
   useEffect(() => {
     setHasChanges(JSON.stringify(user) !== JSON.stringify(editableUser));
@@ -23,20 +27,38 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) => {
   };
 
   const handleSaveChanges = () => {
-    // Here you would typically make an API call to save the user data.
-    // For this mock, we'll just log it and maybe show an alert.
     console.log("Saving changes:", editableUser);
     alert("Cambios guardados con éxito (simulación).");
-    // To see the changes reflected, the parent component would need to update the user prop.
-    // For now, we'll just reset the hasChanges state.
     setHasChanges(false); 
   };
+  
+  const handlePasswordChangeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError('Las nuevas contraseñas no coinciden.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPasswordError('La nueva contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+    // Simulation
+    console.log("Changing password...");
+    alert("Contraseña cambiada con éxito (simulación).");
+    setShowPasswordFields(false);
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmNewPassword('');
+  }
+
+  const inputWithIconStyle = "w-full pl-10 pr-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green";
 
   return (
     <div className="p-4">
       <header className="text-center mb-8">
-        <div className="inline-block p-4 bg-purple-100 rounded-full mb-4">
-            <UserIcon className="text-brand-purple" size={32} />
+        <div className="inline-block p-4 bg-green-100 rounded-full mb-4">
+            <UserIcon className="text-brand-green" size={32} />
         </div>
         <h1 className="text-2xl font-bold text-text-primary">Mi Perfil</h1>
         <p className="text-text-secondary">Gestiona tu información personal.</p>
@@ -61,17 +83,51 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) => {
             <label htmlFor="email" className="text-sm font-medium text-text-secondary">Correo Electrónico</label>
             <div className="relative mt-1">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input id="email" name="email" type="email" value={editableUser.email} onChange={handleChange} className="w-full pl-10 pr-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-purple" />
+                <input id="email" name="email" type="email" value={editableUser.email} onChange={handleChange} className={inputWithIconStyle} />
             </div>
         </div>
         <div>
             <label htmlFor="phone" className="text-sm font-medium text-text-secondary">Número de Teléfono</label>
             <div className="relative mt-1">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input id="phone" name="phone" type="tel" value={editableUser.phone || ''} onChange={handleChange} className="w-full pl-10 pr-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-purple" />
+                <input id="phone" name="phone" type="tel" value={editableUser.phone || ''} onChange={handleChange} className={inputWithIconStyle} />
             </div>
         </div>
       </div>
+      
+      {showPasswordFields && (
+        <form onSubmit={handlePasswordChangeSubmit} className="mt-6 p-4 border rounded-xl space-y-4 bg-gray-50">
+           <h2 className="text-lg font-semibold text-text-primary text-center">Cambiar Contraseña</h2>
+           {passwordError && <p className="text-sm text-brand-red text-center">{passwordError}</p>}
+           <div>
+            <label htmlFor="currentPassword" className="text-sm font-medium text-text-secondary">Contraseña Actual</label>
+            <div className="relative mt-1">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                <input id="currentPassword" name="currentPassword" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className={inputWithIconStyle} required />
+            </div>
+           </div>
+           <div>
+            <label htmlFor="newPassword" className="text-sm font-medium text-text-secondary">Nueva Contraseña</label>
+            <div className="relative mt-1">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                <input id="newPassword" name="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={inputWithIconStyle} required />
+            </div>
+           </div>
+           <div>
+            <label htmlFor="confirmNewPassword" className="text-sm font-medium text-text-secondary">Confirmar Nueva Contraseña</label>
+            <div className="relative mt-1">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                <input id="confirmNewPassword" name="confirmNewPassword" type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} className={inputWithIconStyle} required />
+            </div>
+           </div>
+           <button 
+              type="submit"
+              className="w-full flex items-center justify-center gap-2 bg-text-primary text-white font-semibold py-3 px-4 rounded-xl hover:bg-opacity-90 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-text-primary"
+            >
+              Confirmar Cambio
+            </button>
+        </form>
+      )}
 
       <div className="mt-8 space-y-3">
         <button 
@@ -81,6 +137,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) => {
           <Save size={20} />
           <span>Guardar Cambios</span>
         </button>
+
+        <button 
+          onClick={() => { setShowPasswordFields(!showPasswordFields); setPasswordError(''); }}
+          className="w-full flex items-center justify-center gap-2 bg-gray-100 text-text-secondary font-semibold py-3 px-4 rounded-xl hover:bg-gray-200 transition-colors"
+        >
+          <KeyRound size={20} />
+          <span>{showPasswordFields ? 'Cancelar' : 'Cambiar Contraseña'}</span>
+        </button>
+
         <button 
           onClick={onLogout}
           className="w-full flex items-center justify-center gap-2 bg-red-50 text-brand-red font-semibold py-3 px-4 rounded-xl hover:bg-red-100 transition-colors"

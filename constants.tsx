@@ -1,37 +1,37 @@
+
 import React from 'react';
 import { Subscription, Category, Currency, Period, PaymentMethod } from './types';
-import { Tv, Music, Gamepad2, Code, Dumbbell, Newspaper, Package, Headphones } from 'lucide-react';
+import { Tv, Music, Gamepad2, Code, Dumbbell, Newspaper, Package } from 'lucide-react';
 
-// Fix: Updated icon type to accept size prop, which fixes type errors in Dashboard.tsx and SubscriptionCard.tsx.
-export const CATEGORY_STYLES: { [key in Category]: { icon: React.ComponentType<{ className?: string; size?: number }>, gradient: string, color: string } } = {
-  [Category.Streaming]: { icon: Tv, gradient: 'from-blue-400 to-cyan-400', color: 'brand-blue' },
-  [Category.Music]: { icon: Music, gradient: 'from-green-400 to-emerald-400', color: 'brand-green' },
-  [Category.Sports]: { icon: Dumbbell, gradient: 'from-orange-400 to-amber-500', color: 'brand-orange' },
-  [Category.Software]: { icon: Code, gradient: 'from-purple-400 to-indigo-500', color: 'brand-purple' },
-  [Category.Gaming]: { icon: Gamepad2, gradient: 'from-red-400 to-rose-500', color: 'brand-red' },
-  [Category.News]: { icon: Newspaper, gradient: 'from-yellow-400 to-amber-500', color: 'brand-yellow' },
-  [Category.Other]: { icon: Package, gradient: 'from-gray-400 to-slate-500', color: 'brand-gray' },
+export const CATEGORY_STYLES: { [key in Category]: { icon: React.ComponentType<{ className?: string; size?: number }>, color: string, bgColor: string, borderColor: string, chartColor: string } } = {
+  [Category.Streaming]: { icon: Tv, color: 'text-brand-purple', bgColor: 'bg-purple-100', borderColor: 'bg-brand-purple', chartColor: '#A487E5' },
+  [Category.Music]: { icon: Music, color: 'text-brand-green', bgColor: 'bg-green-100', borderColor: 'bg-brand-green', chartColor: '#24CCA7' },
+  [Category.Sports]: { icon: Dumbbell, color: 'text-orange-500', bgColor: 'bg-orange-100', borderColor: 'bg-orange-400', chartColor: '#FF9966' },
+  [Category.Software]: { icon: Code, color: 'text-sky-500', bgColor: 'bg-sky-100', borderColor: 'bg-sky-400', chartColor: '#70C4FF' },
+  [Category.Gaming]: { icon: Gamepad2, color: 'text-red-500', bgColor: 'bg-red-100', borderColor: 'bg-red-400', chartColor: '#FF6370' },
+  [Category.News]: { icon: Newspaper, color: 'text-yellow-500', bgColor: 'bg-yellow-100', borderColor: 'bg-yellow-400', chartColor: '#FFD166' },
+  [Category.Other]: { icon: Package, color: 'text-slate-500', bgColor: 'bg-slate-100', borderColor: 'bg-slate-400', chartColor: '#B0B8C4' },
 };
 
 export const MOCK_SUBSCRIPTIONS: Subscription[] = [
   {
-    id: '1',
-    name: 'Netflix Premium',
-    category: Category.Streaming,
-    amount: 8990,
-    currency: Currency.CLP,
-    period: Period.Monthly,
-    renewalDate: new Date('2024-09-28'),
-    paymentMethod: PaymentMethod.Credit,
-  },
-  {
     id: '2',
-    name: 'Spotify Familia',
+    name: 'Spotify Premium',
     category: Category.Music,
     amount: 4500,
     currency: Currency.CLP,
     period: Period.Monthly,
-    renewalDate: new Date('2024-09-30'),
+    renewalDate: new Date('2024-09-28'),
+  },
+  {
+    id: '1',
+    name: 'Netflix',
+    category: Category.Streaming,
+    amount: 8990,
+    currency: Currency.CLP,
+    period: Period.Monthly,
+    renewalDate: new Date('2024-10-05'),
+    paymentMethod: PaymentMethod.Credit,
   },
   {
     id: '3',
@@ -52,14 +52,5 @@ export const MOCK_SUBSCRIPTIONS: Subscription[] = [
     period: Period.Monthly,
     renewalDate: new Date('2024-10-01'),
     notes: 'Plan de todas las aplicaciones.'
-  },
-  {
-    id: '5',
-    name: 'Xbox Game Pass',
-    category: Category.Gaming,
-    amount: 7990,
-    currency: Currency.CLP,
-    period: Period.Monthly,
-    renewalDate: new Date('2024-09-25'),
   },
 ];
