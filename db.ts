@@ -2,119 +2,116 @@ import { User, Subscription } from './types';
 
 const DB_NAME = 'ZenSubDB';
 const DB_VERSION = 1;
-const USERS_STORE = 'users';
+const USER_STORE = 'users';
 const SUBS_STORE = 'subscriptions';
 
 let db: IDBDatabase;
 
-// --- DB Initialization ---
-
-export const initDB = (): Promise<IDBDatabase> => {
+// Function to initialize the database
+export const initDB = (): Promise<void> => {
   return new Promise((resolve, reject) => {
     if (db) {
-      return resolve(db);
+        return resolve();
     }
-
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-    request.onerror = (event) => {
-      console.error('Database error:', request.error);
+    request.onerror = () => {
+      console.error('IndexedDB error:', request.error);
       reject('Error opening database');
     };
 
-    request.onsuccess = (event) => {
+    request.onsuccess = () => {
       db = request.result;
-      resolve(db);
+      resolve();
     };
 
     request.onupgradeneeded = (event) => {
-      const tempDb = (event.target as IDBOpenDBRequest).result;
-      
-      // Create users store
-      if (!tempDb.objectStoreNames.contains(USERS_STORE)) {
-        tempDb.createObjectStore(USERS_STORE, { keyPath: 'email' });
+      const dbInstance = (event.target as IDBOpenDBRequest).result;
+      // User store: key is email
+      if (!dbInstance.objectStoreNames.contains(USER_STORE)) {
+        dbInstance.createObjectStore(USER_STORE, { keyPath: 'email' });
       }
-
-      // Create subscriptions store
-      if (!tempDb.objectStoreNames.contains(SUBS_STORE)) {
-        const subsStore = tempDb.createObjectStore(SUBS_STORE, { keyPath: 'id' });
-        // Create an index to query subscriptions by user email
-        subsStore.createIndex('userEmailIndex', 'userEmail', { unique: false });
+      // Subscriptions store: key is id, with an index on userEmail for lookups
+      if (!dbInstance.objectStoreNames.contains(SUBS_STORE)) {
+        const subsStore = dbInstance.createObjectStore(SUBS_STORE, { keyPath: 'id' });
+        subsStore.createIndex('userEmail', 'userEmail', { unique: false });
       }
     };
   });
 };
 
+// --- User Functions ---
 
-// --- Helper for Transactions ---
+export const addUser = (user: User & { password?: string }): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(USER_STORE, 'readwrite');
+    const store = transaction.objectStore(USER_STORE);
+    const request = store.add(user);
 
-const performTransaction = <T>(
-    storeName: string, 
-    mode: IDBTransactionMode, 
-    action: (store: IDBObjectStore) => IDBRequest
-): Promise<T> => {
-    return new Promise(async (resolve, reject) => {
-        const db = await initDB();
-        const transaction = db.transaction(storeName, mode);
-        const store = transaction.objectStore(storeName);
-        const request = action(store);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+};
 
-        request.onsuccess = () => resolve(request.result as T);
-        request.onerror = () => reject(request.error);
-        transaction.onerror = () => reject(transaction.error);
+export const getUser = (email: string): Promise<(User & { password?: string }) | undefined> => {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(USER_STORE, 'readonly');
+    const store = transaction.objectStore(USER_STORE);
+    const request = store.get(email);
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+// --- Subscription Functions ---
+
+export const saveSubscription = (subscription: Subscription, userEmail: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      // We need to store the user's email with the subscription to link them
+      const subscriptionWithUser = { ...subscription, userEmail };
+
+      const transaction = db.transaction(SUBS_STORE, 'readwrite');
+      const store = transaction.objectStore(SUBS_STORE);
+      // 'put' works for both adding and updating
+      const request = store.put(subscriptionWithUser);
+  
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
     });
 };
 
-
-// --- User Operations ---
-
-interface StoredUser extends User {
-    password?: string;
-}
-
-export const addUser = (user: StoredUser): Promise<IDBValidKey> => {
-    return performTransaction<IDBValidKey>(USERS_STORE, 'readwrite', store => store.add(user));
-}
-
-export const getUser = async (email: string): Promise<StoredUser | undefined> => {
-    const user = await performTransaction<StoredUser>(USERS_STORE, 'readonly', store => store.get(email.toLowerCase()));
-    return user;
-};
-
-
-// --- Subscription Operations ---
-
-interface StoredSubscription extends Subscription {
-    userEmail: string;
-}
-
-export const saveSubscription = (subscription: Subscription, userEmail: string): Promise<IDBValidKey> => {
-    const storedSub: StoredSubscription = { ...subscription, userEmail: userEmail.toLowerCase() };
-    return performTransaction<IDBValidKey>(SUBS_STORE, 'readwrite', store => store.put(storedSub));
-};
-
 export const getSubscriptionsForUser = (userEmail: string): Promise<Subscription[]> => {
-    return new Promise(async (resolve, reject) => {
-        const db = await initDB();
-        const transaction = db.transaction(SUBS_STORE, 'readonly');
-        const store = transaction.objectStore(SUBS_STORE);
-        const index = store.index('userEmailIndex');
-        const request = index.getAll(userEmail.toLowerCase());
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(SUBS_STORE, 'readonly');
+      const store = transaction.objectStore(SUBS_STORE);
+      const index = store.index('userEmail');
+      const request = index.getAll(userEmail);
 
-        request.onsuccess = () => {
-             // Convert dates from string back to Date objects
-            const subsWithDates = request.result.map((sub: any) => ({
-                ...sub,
-                renewalDate: new Date(sub.renewalDate),
-                contractDate: sub.contractDate ? new Date(sub.contractDate) : undefined,
-            }));
-            resolve(subsWithDates);
-        };
-        request.onerror = () => reject(request.error);
-        transaction.onerror = () => reject(transaction.error);
+      request.onsuccess = () => {
+        // IndexedDB may store dates as strings, so we need to convert them back to Date objects
+        if (!request.result) {
+            resolve([]);
+            return;
+        }
+        const subs = request.result.map(sub => ({
+          ...sub,
+          renewalDate: new Date(sub.renewalDate),
+          contractDate: sub.contractDate ? new Date(sub.contractDate) : undefined,
+        }));
+        resolve(subs);
+      };
+      request.onerror = () => reject(request.error);
     });
 };
 
 export const deleteSubscription = (subscriptionId: string): Promise<void> => {
-    return performTransaction<void>(SUBS_STORE, 'readwrite', store => store.delete(subscriptionId));
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(SUBS_STORE, 'readwrite');
+      const store = transaction.objectStore(SUBS_STORE);
+      const request = store.delete(subscriptionId);
+  
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
 };
