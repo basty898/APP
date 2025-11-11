@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { Subscription, Category, Currency, Period, PaymentMethod } from '../types';
+import { Subscription, Category, Currency, Period, PaymentMethod, PlanType } from '../types';
 import { X, Save, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -24,31 +23,51 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, 
       setFormData({
         ...subscription,
         renewalDate: subscription.renewalDate ? new Date(subscription.renewalDate) : new Date(),
+        contractDate: subscription.contractDate ? new Date(subscription.contractDate) : new Date(),
       });
     } else {
       setFormData({
         name: '',
         category: Category.Other,
-        amount: 0,
+        amount: undefined,
         currency: Currency.CLP,
         period: Period.Monthly,
         renewalDate: new Date(),
+        contractDate: new Date(),
         paymentMethod: undefined,
-        notes: ''
+        notes: '',
+        plan: '',
+        enableReminder: true,
       });
     }
   }, [subscription, isOpen]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
+    
+    if (type === 'checkbox') {
+        const { checked } = e.target as HTMLInputElement;
+        setFormData(prev => ({...prev, [name]: checked }));
+        return;
+    }
+
     const isNumericField = ['amount'].includes(name);
-    setFormData(prev => ({ ...prev, [name]: isNumericField ? parseFloat(value) : value }));
+    setFormData(prev => ({ ...prev, [name]: isNumericField ? (value === '' ? undefined : parseFloat(value)) : value }));
   };
   
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newDate = new Date(e.target.value + 'T00:00:00'); // Prevent timezone issues
-    setFormData(prev => ({ ...prev, renewalDate: newDate }));
-  }
+    const { name, value } = e.target;
+    if (value) {
+      // The input value is "YYYY-MM-DD"
+      const newDate = new Date(value + 'T00:00:00'); // Prevent timezone issues
+      if (!isNaN(newDate.getTime())) {
+        setFormData(prev => ({ ...prev, [name]: newDate }));
+      }
+    } else {
+      // Handle the case where the input is cleared
+      setFormData(prev => ({ ...prev, [name]: undefined }));
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,9 +139,23 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, 
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de renovación</label>
-                <input type="date" name="renewalDate" value={formData.renewalDate ? format(formData.renewalDate, 'yyyy-MM-dd') : ''} onChange={handleDateChange} className={inputStyle} required />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Contratación</label>
+                <input type="date" name="contractDate" value={formData.contractDate ? format(formData.contractDate, 'yyyy-MM-dd') : ''} onChange={handleDateChange} className={inputStyle} required />
               </div>
+          </div>
+           <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Próxima Renovación</label>
+              <input type="date" name="renewalDate" value={formData.renewalDate ? format(formData.renewalDate, 'yyyy-MM-dd') : ''} onChange={handleDateChange} className={inputStyle} required />
+            </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de plan (opcional)</label>
+            <select name="plan" value={formData.plan || ''} onChange={handleChange} className={inputStyle}>
+              <option value="">Seleccionar plan...</option>
+              {Object.values(PlanType).map(p => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -137,7 +170,19 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, 
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Notas adicionales</label>
-            <textarea name="notes" value={formData.notes || ''} onChange={handleChange} rows={3} className={inputStyle}></textarea>
+            <textarea name="notes" value={formData.notes || ''} onChange={handleChange} rows={2} className={inputStyle}></textarea>
+          </div>
+
+          <div className="flex items-center gap-3 bg-gray-100 p-3 rounded-lg">
+            <input 
+                type="checkbox" 
+                id="enableReminder" 
+                name="enableReminder"
+                checked={!!formData.enableReminder}
+                onChange={handleChange}
+                className="h-5 w-5 rounded border-gray-300 text-brand-green focus:ring-brand-green"
+            />
+            <label htmlFor="enableReminder" className="text-sm font-medium text-gray-700">Notificar 3 días antes de la renovación</label>
           </div>
 
         </form>

@@ -1,8 +1,10 @@
+
 import React from 'react';
 import { Subscription } from '../types';
 import { CATEGORY_STYLES } from '../constants';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+// FIX: The locale must be imported from its specific path.
+import { es } from 'date-fns/locale/es';
 
 interface SubscriptionCardProps {
   subscription: Subscription;
@@ -10,7 +12,7 @@ interface SubscriptionCardProps {
 }
 
 const SubscriptionCard: React.FC<SubscriptionCardProps> = ({ subscription, onClick }) => {
-  const { name, category, amount, currency, renewalDate } = subscription;
+  const { name, category, amount, currency, renewalDate, plan } = subscription;
   const categoryStyle = CATEGORY_STYLES[category];
   const Icon = categoryStyle.icon;
 
@@ -23,13 +25,14 @@ const SubscriptionCard: React.FC<SubscriptionCardProps> = ({ subscription, onCli
       <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${categoryStyle.bgColor}`}>
           <Icon className={categoryStyle.color} size={24} />
       </div>
-      <div className="flex-grow">
-          <h3 className="font-bold text-md text-text-primary">{name}</h3>
+      <div className="flex-grow overflow-hidden">
+          <h3 className="font-bold text-md text-text-primary truncate">{name}</h3>
           <p className="text-sm text-text-secondary">
               {new Intl.NumberFormat('es-CL', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount)}
+              {plan && <span className="text-xs"> - {plan}</span>}
           </p>
       </div>
-      <div className="text-right flex-shrink-0">
+      <div className="text-right flex-shrink-0 ml-2">
           <p className="font-semibold text-md text-text-primary">
               {format(renewalDate, 'dd', { locale: es })}
           </p>

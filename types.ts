@@ -26,6 +26,12 @@ export enum PaymentMethod {
   Other = 'Otros',
 }
 
+export enum PlanType {
+  Basic = 'Básico',
+  Standard = 'Estándar',
+  Premium = 'Premium',
+}
+
 export interface Subscription {
   id: string;
   name: string;
@@ -34,8 +40,11 @@ export interface Subscription {
   currency: Currency;
   period: Period;
   renewalDate: Date;
+  contractDate?: Date;
   paymentMethod?: PaymentMethod;
   notes?: string;
+  plan?: PlanType | string;
+  enableReminder?: boolean;
 }
 
 export interface User {

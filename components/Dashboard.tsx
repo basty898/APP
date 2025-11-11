@@ -1,16 +1,19 @@
+
 import React, { useState, useMemo } from 'react';
-import { Subscription, Category, User } from '../types';
-import { MOCK_SUBSCRIPTIONS, CATEGORY_STYLES } from '../constants';
+import { Subscription, User } from '../types';
+import { CATEGORY_STYLES } from '../constants';
 import SubscriptionCard from './SubscriptionCard';
 import SubscriptionModal from './SubscriptionModal';
 import CategoryChart from './CategoryChart';
 import BottomNav from './BottomNav';
 import ProfileScreen from './ProfileScreen';
+import NotificationsScreen from './NotificationsScreen';
 import { Search, Plus } from 'lucide-react';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+// FIX: The locale must be imported from its specific path.
+import { es } from 'date-fns/locale/es';
 
-type View = 'dashboard' | 'subscriptions' | 'profile';
+type View = 'dashboard' | 'subscriptions' | 'notifications' | 'profile';
 
 const ZenSubLogo = () => (
     <div className="flex items-center gap-2">
@@ -21,14 +24,16 @@ const ZenSubLogo = () => (
     </div>
 );
 
-
 interface DashboardProps {
     user: User;
     onLogout: () => void;
+    subscriptions: Subscription[];
+    addSubscription: (sub: Subscription) => Promise<void>;
+    updateSubscription: (sub: Subscription) => Promise<void>;
+    removeSubscription: (id: string) => Promise<void>;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
-    const [subscriptions, setSubscriptions] = useState<Subscription[]>(MOCK_SUBSCRIPTIONS);
+const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, subscriptions, addSubscription, updateSubscription, removeSubscription }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
     const [subscriptionToDelete, setSubscriptionToDelete] = useState<Subscription | null>(null);
@@ -44,17 +49,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         setIsModalOpen(true);
     };
 
-    const handleConfirmDelete = () => {
+    const handleConfirmDelete = async () => {
         if (!subscriptionToDelete) return;
-        setSubscriptions(subs => subs.filter(s => s.id !== subscriptionToDelete.id));
+        await removeSubscription(subscriptionToDelete.id);
         setSubscriptionToDelete(null);
     };
 
-    const handleSaveSubscription = (sub: Subscription) => {
+    const handleSaveSubscription = async (sub: Subscription) => {
         if (editingSubscription) {
-            setSubscriptions(subs => subs.map(s => s.id === sub.id ? sub : s));
+            await updateSubscription(sub);
         } else {
-            setSubscriptions(subs => [...subs, { ...sub, id: Date.now().toString() }]);
+            const newSub = { ...sub, id: Date.now().toString() };
+            await addSubscription(newSub);
         }
         setIsModalOpen(false);
         setEditingSubscription(null);
@@ -104,12 +110,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         if (activeView === 'profile') {
             return <ProfileScreen user={user} onLogout={onLogout} />;
         }
+
+        if (activeView === 'notifications') {
+            return <NotificationsScreen subscriptions={sortedSubscriptions} />;
+        }
         
         if (activeView === 'subscriptions') {
             return (
                  <div className="space-y-3">
                     <div className="flex justify-between items-center mb-2">
-                        <h2 className="text-xl font-bold text-text-primary">Suscripciones</h2>
+                        <h2 className="text-xl font-bold text-text-primary">Servicios</h2>
                         <button className="text-text-secondary hover:text-text-primary">
                             <Search size={22} />
                         </button>
@@ -120,7 +130,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                             subscription={sub} 
                             onClick={() => handleEditSubscription(sub)}
                         />
-                    )) : <p className="text-center text-text-secondary mt-8">No se encontraron suscripciones.</p>}
+                    )) : <div className="text-center text-text-secondary mt-12">
+                            <p className="mb-4">No has añadido ninguna suscripción todavía.</p>
+                             <button
+                                onClick={handleAddSubscription}
+                                className="bg-brand-green text-white font-semibold py-2 px-6 rounded-lg hover:bg-opacity-90 transition-all"
+                            >
+                                Añadir mi primera suscripción
+                            </button>
+                        </div>
+                    }
                 </div>
             )
         }
@@ -143,7 +162,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                                 <p className="text-sm font-semibold text-text-primary truncate">{upcomingRenewal.name} - {format(upcomingRenewal.renewalDate, 'dd MMM', {locale: es})}</p>
                              </div>
                         ) : (
-                            <p className="text-lg font-bold text-text-primary">-</p>
+                            <p className="text-sm font-semibold text-text-secondary">-</p>
                         )}
                     </div>
                 </div>
@@ -160,17 +179,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-bold text-text-primary">Suscripciones Activas</h2>
-                     <button className="text-text-secondary hover:text-text-primary">
-                        <Search size={22} />
-                    </button>
                 </div>
                  <div className="space-y-3">
-                    {sortedSubscriptions.slice(0, 3).map(sub => (
+                    {sortedSubscriptions.length > 0 ? sortedSubscriptions.slice(0, 3).map(sub => (
                         <SubscriptionCard 
                             key={sub.id} 
                             subscription={sub} 
                         />
-                    ))}
+                    )) : <p className="text-center text-text-secondary mt-4">Aquí verás tus suscripciones activas.</p>}
                 </div>
             </>
         )
@@ -186,7 +202,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                  {renderContent()}
             </main>
 
-             {activeView === 'subscriptions' && (
+             {activeView === 'subscriptions' && subscriptions.length > 0 && (
                 <button
                     onClick={handleAddSubscription}
                     className="fixed bottom-28 right-8 w-16 h-16 bg-brand-green text-white rounded-2xl flex items-center justify-center shadow-lg transform transition-transform hover:scale-110 z-20"
