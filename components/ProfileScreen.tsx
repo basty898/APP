@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { User as UserType } from '../types';
-import { User as UserIcon, Mail, Phone, LogOut, Save, Lock, KeyRound } from 'lucide-react';
+import { User as UserIcon, Mail, Phone, LogOut, Save, Lock, KeyRound, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface ProfileScreenProps {
   user: UserType;
   onLogout: () => void;
+  onUpdateUser: (user: UserType) => Promise<void>;
 }
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) => {
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout, onUpdateUser }) => {
   const [editableUser, setEditableUser] = useState<UserType>(user);
   const [hasChanges, setHasChanges] = useState(false);
   const [isLogoutConfirmVisible, setIsLogoutConfirmVisible] = useState(false);
@@ -18,6 +19,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) => {
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
   useEffect(() => {
     setHasChanges(JSON.stringify(user) !== JSON.stringify(editableUser));
   }, [user, editableUser]);
@@ -27,12 +32,20 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) => {
     setEditableUser(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSaveChanges = () => {
-    // In a real app, you would send this to a server.
-    // For now, we simulate success.
-    console.log("Saving changes:", editableUser);
-    alert("Cambios guardados con éxito (simulación).");
-    setHasChanges(false); 
+  const handleSaveChanges = async () => {
+    setIsSaving(true);
+    setSaveError('');
+    setSaveSuccess(false);
+    try {
+        await onUpdateUser(editableUser);
+        setSaveSuccess(true);
+        setHasChanges(false); 
+        setTimeout(() => setSaveSuccess(false), 3000);
+    } catch(error) {
+        setSaveError(error instanceof Error ? error.message : 'Ocurrió un error al guardar.');
+    } finally {
+        setIsSaving(false);
+    }
   };
   
   const handlePasswordChangeSubmit = (e: React.FormEvent) => {
@@ -67,6 +80,19 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) => {
           <h1 className="text-2xl font-bold text-text-primary">Mi Perfil</h1>
           <p className="text-text-secondary">Gestiona tu información personal.</p>
         </header>
+
+        {saveError && (
+            <div className="flex items-center gap-2 bg-red-100 text-brand-red p-3 rounded-lg mb-4">
+                <AlertCircle size={20} />
+                <span className="text-sm">{saveError}</span>
+            </div>
+        )}
+        {saveSuccess && (
+            <div className="flex items-center gap-2 bg-green-100 text-green-700 p-3 rounded-lg mb-4">
+                <CheckCircle size={20} />
+                <span className="text-sm">¡Perfil actualizado con éxito!</span>
+            </div>
+        )}
         
         <div className="space-y-4">
           <div>
@@ -136,11 +162,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout }) => {
         <div className="mt-8 space-y-3">
           <button 
             onClick={handleSaveChanges}
-            disabled={!hasChanges}
+            disabled={!hasChanges || isSaving}
             className="w-full flex items-center justify-center gap-2 bg-brand-green text-white font-semibold py-3 px-4 rounded-xl hover:bg-opacity-90 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             <Save size={20} />
-            <span>Guardar Cambios</span>
+            <span>{isSaving ? 'Guardando...' : 'Guardar Cambios'}</span>
           </button>
 
           <button 

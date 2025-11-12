@@ -1,221 +1,169 @@
+import { createClient } from '@supabase/supabase-js';
 import { User, Subscription, UserRole, UserStatus } from './types';
 
-const DB_NAME = 'ZenSubDB';
-const DB_VERSION = 2; // Incremented version
-const USER_STORE = 'users';
-const SUBS_STORE = 'subscriptions';
+const supabaseUrl = 'https://xiwaqbxypkarqhfrlmfk.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhpd2FxYnh5cGthcnFoZnJsbWZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NjkwNzQsImV4cCI6MjA3ODU0NTA3NH0.FcgynWZwFBJpjMNMt6vOUxxPFR3sE0AdWpuBbWe8oSY';
 
-let db: IDBDatabase;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Function to initialize the database
+// initDB is kept for compatibility with App.tsx, but it doesn't need to do anything with Supabase.
 export const initDB = (): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    if (db) {
-        return resolve();
-    }
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onerror = () => {
-      console.error('IndexedDB error:', request.error);
-      reject('Error opening database');
-    };
-
-    request.onsuccess = () => {
-      db = request.result;
-      resolve();
-    };
-
-    request.onupgradeneeded = (event) => {
-      const dbInstance = (event.target as IDBOpenDBRequest).result;
-      const oldVersion = event.oldVersion;
-
-      // User store: key is email
-      if (oldVersion < 1) {
-        if (!dbInstance.objectStoreNames.contains(USER_STORE)) {
-            dbInstance.createObjectStore(USER_STORE, { keyPath: 'email' });
-        }
-        // Subscriptions store: key is id, with an index on userEmail for lookups
-        if (!dbInstance.objectStoreNames.contains(SUBS_STORE)) {
-            const subsStore = dbInstance.createObjectStore(SUBS_STORE, { keyPath: 'id' });
-            subsStore.createIndex('userEmail', 'userEmail', { unique: false });
-        }
-      }
-
-      if (oldVersion < 2) {
-        // Seed Admin User
-        const transaction = (event.target as IDBOpenDBRequest).transaction;
-        if(transaction) {
-            const userStore = transaction.objectStore(USER_STORE);
-            const adminUser = {
-                email: 'admin@zensub.cl',
-                password: btoa('admin'), // Encode password for security
-                firstName: 'Admin',
-                lastName: 'Zensub',
-                role: UserRole.Admin,
-                status: UserStatus.Active,
-                createdAt: new Date(),
-            };
-            userStore.add(adminUser);
-        }
-      }
-    };
-  });
+    return Promise.resolve();
 };
 
 // --- User Functions ---
 
-export const addUser = (user: User & { password?: string }): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(USER_STORE, 'readwrite');
-    const store = transaction.objectStore(USER_STORE);
+export const addUser = async (user: User & { password?: string }): Promise<void> => {
+  const userToSave = { 
+    ...user,
+    role: user.role || UserRole.User,
+    status: user.status || UserStatus.Active,
+    createdAt: user.createdAt || new Date(),
+  };
+
+  if (userToSave.password) {
+    userToSave.password = btoa(userToSave.password);
+  }
+
+  const { error } = await supabase.from('users').insert(userToSave);
+  if (error) {
+    console.error('Supabase addUser error:', error);
+    throw error;
+  }
+};
+
+// This function now returns the full user object including password for auth check
+export const getFullUserForAuth = async (email: string): Promise<(User & { password?: string }) | undefined> => {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('email', email.toLowerCase())
+    .single();
+
+  if (error && error.code !== 'PGRST116') { // PGRST116: "No rows found"
+    console.error('Supabase getFullUserForAuth error:', error);
+    throw error;
+  }
+  
+  return data ? data : undefined;
+};
+
+
+export const getUser = async (email: string): Promise<User | undefined> => {
+  const { data, error } = await supabase
+    .from('users')
+    .select('firstName, lastName, email, phone, role, status, createdAt, lastLoginAt')
+    .eq('email', email.toLowerCase())
+    .single();
+
+  if (error && error.code !== 'PGRST116') { // PGRST116: "No rows found"
+    console.error('Supabase getUser error:', error);
+    throw error;
+  }
+  
+  if (!data) {
+    return undefined;
+  }
+
+  // Convert date strings to Date objects to match the User type
+  return {
+    ...data,
+    createdAt: new Date(data.createdAt),
+    lastLoginAt: data.lastLoginAt ? new Date(data.lastLoginAt) : undefined,
+  };
+};
+
+export const updateUser = async (user: User, originalEmail: string): Promise<void> => {
+    const payload: Partial<User> = { ...user };
     
-    // Encode password before saving for security
-    const userToSave = { ...user };
-    if (userToSave.password) {
-        userToSave.password = btoa(userToSave.password);
+    const { error } = await supabase
+        .from('users')
+        .update(payload)
+        .eq('email', originalEmail); 
+    
+    if (error) {
+        console.error('Supabase updateUser error:', error);
+        throw error;
     }
-
-    const request = store.add({
-        ...userToSave,
-        role: user.role || UserRole.User,
-        status: user.status || UserStatus.Active,
-        createdAt: user.createdAt || new Date(),
-    });
-
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
 };
 
-export const getUser = (email: string): Promise<(User & { password?: string }) | undefined> => {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(USER_STORE, 'readonly');
-    const store = transaction.objectStore(USER_STORE);
-    const request = store.get(email.toLowerCase());
+export const updateLastLogin = async (email: string): Promise<void> => {
+    const { error } = await supabase
+        .from('users')
+        .update({ lastLoginAt: new Date() })
+        .eq('email', email);
+    if (error) {
+        console.error('Supabase updateLastLogin error:', error);
+        throw error;
+    }
+}
 
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+export const getAllUsers = async (): Promise<User[]> => {
+    const { data, error } = await supabase.from('users').select('firstName, lastName, email, phone, role, status, createdAt, lastLoginAt');
+    if (error) {
+        console.error('Supabase getAllUsers error:', error);
+        throw error;
+    }
+    
+    return (data || []).map(user => ({
+      ...user,
+      createdAt: new Date(user.createdAt),
+      lastLoginAt: user.lastLoginAt ? new Date(user.lastLoginAt) : undefined,
+    }));
 };
 
-export const updateUser = (user: User & { password?: string }): Promise<void> => {
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(USER_STORE, 'readwrite');
-        const store = transaction.objectStore(USER_STORE);
-        const request = store.put(user);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-    });
-};
-
-export const getAllUsers = (): Promise<User[]> => {
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(USER_STORE, 'readonly');
-        const store = transaction.objectStore(USER_STORE);
-        const request = store.getAll();
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-    });
-};
-
-export const deleteUser = (email: string): Promise<void> => {
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction([USER_STORE, SUBS_STORE], 'readwrite');
-        const userStore = transaction.objectStore(USER_STORE);
-        const subsStore = transaction.objectStore(SUBS_STORE);
-        const subsIndex = subsStore.index('userEmail');
-
-        // Delete user
-        const userDeleteRequest = userStore.delete(email);
-        userDeleteRequest.onerror = () => reject(userDeleteRequest.error);
-
-        // Delete associated subscriptions
-        const subsRequest = subsIndex.openCursor(IDBKeyRange.only(email));
-        subsRequest.onsuccess = () => {
-            const cursor = subsRequest.result;
-            if (cursor) {
-                subsStore.delete(cursor.primaryKey);
-                cursor.continue();
-            }
-        };
-        subsRequest.onerror = () => reject(subsRequest.error);
-
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = () => reject(transaction.error);
-    });
+export const deleteUser = async (email: string): Promise<void> => {
+    const { error } = await supabase.from('users').delete().eq('email', email);
+     if (error) {
+        console.error('Supabase deleteUser error:', error);
+        throw error;
+    }
 };
 
 
 // --- Subscription Functions ---
 
-export const saveSubscription = (subscription: Omit<Subscription, 'userEmail'>, userEmail: string): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      const subscriptionWithUser = { ...subscription, userEmail };
-
-      const transaction = db.transaction(SUBS_STORE, 'readwrite');
-      const store = transaction.objectStore(SUBS_STORE);
-      const request = store.put(subscriptionWithUser);
-  
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
+export const saveSubscription = async (subscription: Omit<Subscription, 'userEmail'>, userEmail: string): Promise<void> => {
+    const subscriptionWithUser = { ...subscription, userEmail };
+    const { error } = await supabase.from('subscriptions').upsert(subscriptionWithUser);
+    if (error) {
+        console.error('Supabase saveSubscription error:', error);
+        throw error;
+    }
 };
 
-export const getSubscriptionsForUser = (userEmail: string): Promise<Subscription[]> => {
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(SUBS_STORE, 'readonly');
-      const store = transaction.objectStore(SUBS_STORE);
-      const index = store.index('userEmail');
-      const request = index.getAll(userEmail);
-
-      request.onsuccess = () => {
-        if (!request.result) {
-            resolve([]);
-            return;
-        }
-        const subs: Subscription[] = request.result.map((sub: any) => ({
-          ...sub,
-          renewalDate: new Date(sub.renewalDate),
-          createdAt: sub.createdAt ? new Date(sub.createdAt) : undefined,
-          canceledAt: sub.canceledAt ? new Date(sub.canceledAt) : undefined,
-        }));
-        resolve(subs);
-      };
-      request.onerror = () => reject(request.error);
-    });
+export const getSubscriptionsForUser = async (userEmail: string): Promise<Subscription[]> => {
+    const { data, error } = await supabase.from('subscriptions').select('*').eq('userEmail', userEmail);
+    if (error) {
+        console.error('Supabase getSubscriptionsForUser error:', error);
+        throw error;
+    }
+    return (data || []).map(sub => ({
+        ...sub,
+        renewalDate: new Date(sub.renewalDate),
+        createdAt: sub.createdAt ? new Date(sub.createdAt) : undefined,
+        canceledAt: sub.canceledAt ? new Date(sub.canceledAt) : undefined,
+    }));
 };
 
-export const getAllSubscriptions = (): Promise<Subscription[]> => {
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(SUBS_STORE, 'readonly');
-      const store = transaction.objectStore(SUBS_STORE);
-      const request = store.getAll();
-      
-      request.onsuccess = () => {
-         if (!request.result) {
-            resolve([]);
-            return;
-        }
-        const subs: Subscription[] = request.result.map((sub: any) => ({
-          ...sub,
-          renewalDate: new Date(sub.renewalDate),
-          createdAt: sub.createdAt ? new Date(sub.createdAt) : undefined,
-          canceledAt: sub.canceledAt ? new Date(sub.canceledAt) : undefined,
-        }));
-        resolve(subs);
-      };
-      request.onerror = () => reject(request.error);
-    });
+export const getAllSubscriptions = async (): Promise<Subscription[]> => {
+    const { data, error } = await supabase.from('subscriptions').select('*');
+    if (error) {
+        console.error('Supabase getAllSubscriptions error:', error);
+        throw error;
+    }
+    return (data || []).map(sub => ({
+        ...sub,
+        renewalDate: new Date(sub.renewalDate),
+        createdAt: sub.createdAt ? new Date(sub.createdAt) : undefined,
+        canceledAt: sub.canceledAt ? new Date(sub.canceledAt) : undefined,
+    }));
 };
 
-
-export const deleteSubscription = (subscriptionId: string): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(SUBS_STORE, 'readwrite');
-      const store = transaction.objectStore(SUBS_STORE);
-      const request = store.delete(subscriptionId);
-  
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
+export const deleteSubscription = async (subscriptionId: string): Promise<void> => {
+    const { error } = await supabase.from('subscriptions').delete().eq('id', subscriptionId);
+    if (error) {
+        console.error('Supabase deleteSubscription error:', error);
+        throw error;
+    }
 };

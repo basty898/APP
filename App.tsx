@@ -45,21 +45,30 @@ const App: React.FC = () => {
   }, []);
 
   const handleAuthSuccess = async (userData: User, isNew: boolean) => {
-    const fullUser = await db.getUser(userData.email);
-    if (!fullUser) return;
-    
-    // Update last login time
-    fullUser.lastLoginAt = new Date();
-    await db.updateUser(fullUser);
+    try {
+      const fullUser = await db.getUser(userData.email);
+      if (!fullUser) {
+        throw new Error("User data could not be retrieved after authentication.");
+      };
+      
+      // Update last login time in a separate, secure operation
+      await db.updateLastLogin(fullUser.email);
 
-    setUser(fullUser);
-    setIsAuthenticated(true);
-    setIsNewUser(isNew);
-    if (isNew) {
-      setSubscriptions([]);
-    } else {
-      const userSubscriptions = await db.getSubscriptionsForUser(fullUser.email);
-      setSubscriptions(userSubscriptions);
+      setUser(fullUser);
+      setIsAuthenticated(true);
+      setIsNewUser(isNew);
+
+      if (isNew) {
+        setSubscriptions([]);
+      } else {
+        const userSubscriptions = await db.getSubscriptionsForUser(fullUser.email);
+        setSubscriptions(userSubscriptions);
+      }
+    } catch (error) {
+      console.error("Failed during post-authentication process:", error);
+      handleLogout(); // Reset to a clean state
+      // Re-throw the error to be caught by the AuthScreen's handler
+      throw error;
     }
   };
 
@@ -101,6 +110,22 @@ const App: React.FC = () => {
       setSubscriptions(prev => prev.filter(s => s.id !== id));
   };
 
+  const updateUserProfile = async (updatedUser: User) => {
+    if (!user) throw new Error("No user is currently logged in.");
+    const originalEmail = user.email;
+
+    if (updatedUser.email !== originalEmail) {
+        const existing = await db.getUser(updatedUser.email);
+        if (existing) {
+            throw new Error('El correo electrónico ya está en uso.');
+        }
+    }
+    
+    await db.updateUser(updatedUser, originalEmail);
+    
+    setUser({ ...updatedUser });
+  };
+
   const renderContent = () => {
     if (isLoading) {
       return <AppSkeleton />;
@@ -127,6 +152,7 @@ const App: React.FC = () => {
           addSubscription={addSubscription}
           updateSubscription={updateSubscription}
           removeSubscription={removeSubscription}
+          updateUserProfile={updateUserProfile}
       />
     );
   };

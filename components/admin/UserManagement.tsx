@@ -120,7 +120,8 @@ const UserManagement: React.FC = () => {
     };
     
     const handleUpdateUser = async (updatedUser: User) => {
-        await db.updateUser(updatedUser);
+        if (!editingUser) return;
+        await db.updateUser(updatedUser, editingUser.email);
         fetchAllData(); // Refresh data
     };
     
@@ -129,7 +130,7 @@ const UserManagement: React.FC = () => {
             ...user,
             status: user.status === UserStatus.Active ? UserStatus.Blocked : UserStatus.Active,
         };
-        await db.updateUser(updatedUser);
+        await db.updateUser(updatedUser, user.email);
         fetchAllData(); // Refresh data
     };
     

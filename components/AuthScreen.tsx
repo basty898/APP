@@ -4,7 +4,7 @@ import { Building, User as UserIcon, Lock, Mail, Phone, KeyRound, ArrowLeft } fr
 import * as db from '../db';
 
 interface AuthScreenProps {
-  onAuthSuccess: (user: User, isNew: boolean) => void;
+  onAuthSuccess: (user: User, isNew: boolean) => Promise<void>;
 }
 
 const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
@@ -43,7 +43,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
 
     if (email && password) {
       try {
-        const foundUser = await db.getUser(email);
+        const foundUser = await db.getFullUserForAuth(email);
         
         if (foundUser?.status === UserStatus.Blocked) {
           setError('Tu cuenta ha sido bloqueada. Contacta al administrador.');
@@ -53,13 +53,13 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
         
         if (foundUser && foundUser.password === btoa(password)) {
           const { password: _, ...userToReturn } = foundUser;
-          onAuthSuccess(userToReturn, false);
+          await onAuthSuccess(userToReturn as User, false);
         } else {
           setError('Correo electrónico o contraseña incorrectos.');
         }
       } catch (err) {
         console.error("Login error:", err);
-        setError('Ocurrió un error al iniciar sesión.');
+        setError('Ocurrió un error al iniciar sesión. Por favor, inténtalo de nuevo.');
       }
     } else {
       setError('Por favor, introduce tu email y contraseña.');
@@ -87,7 +87,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
         }
 
         if (firstName && lastName && registerEmail && registerPassword) {
-            const newUser = {
+            const newUser: User & { password?: string } = {
                 firstName,
                 lastName,
                 email: registerEmail.toLowerCase(),
@@ -99,8 +99,8 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
             };
             await db.addUser(newUser);
             
-            const { password: _, ...userToReturn } = newUser;
-            onAuthSuccess(userToReturn, true);
+            delete newUser.password;
+            await onAuthSuccess(newUser as User, true);
         } else {
             setError('Por favor, completa todos los campos requeridos.');
         }

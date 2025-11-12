@@ -31,9 +31,10 @@ interface DashboardProps {
     addSubscription: (sub: Omit<Subscription, 'userEmail'>) => Promise<void>;
     updateSubscription: (sub: Omit<Subscription, 'userEmail'>) => Promise<void>;
     removeSubscription: (id: string) => Promise<void>;
+    updateUserProfile: (user: User) => Promise<void>;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, subscriptions, addSubscription, updateSubscription, removeSubscription }) => {
+const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, subscriptions, addSubscription, updateSubscription, removeSubscription, updateUserProfile }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
     const [subscriptionToDelete, setSubscriptionToDelete] = useState<Subscription | null>(null);
@@ -124,7 +125,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, subscriptions, ad
       
     const renderContent = () => {
         if (activeView === 'profile') {
-            return <ProfileScreen user={user} onLogout={onLogout} />;
+            return <ProfileScreen user={user} onLogout={onLogout} onUpdateUser={updateUserProfile} />;
         }
 
         if (activeView === 'notifications') {
