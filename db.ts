@@ -1,7 +1,7 @@
-import { User, Subscription } from './types';
+import { User, Subscription, UserRole, UserStatus } from './types';
 
 const DB_NAME = 'ZenSubDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented version
 const USER_STORE = 'users';
 const SUBS_STORE = 'subscriptions';
 
@@ -27,14 +27,36 @@ export const initDB = (): Promise<void> => {
 
     request.onupgradeneeded = (event) => {
       const dbInstance = (event.target as IDBOpenDBRequest).result;
+      const oldVersion = event.oldVersion;
+
       // User store: key is email
-      if (!dbInstance.objectStoreNames.contains(USER_STORE)) {
-        dbInstance.createObjectStore(USER_STORE, { keyPath: 'email' });
+      if (oldVersion < 1) {
+        if (!dbInstance.objectStoreNames.contains(USER_STORE)) {
+            dbInstance.createObjectStore(USER_STORE, { keyPath: 'email' });
+        }
+        // Subscriptions store: key is id, with an index on userEmail for lookups
+        if (!dbInstance.objectStoreNames.contains(SUBS_STORE)) {
+            const subsStore = dbInstance.createObjectStore(SUBS_STORE, { keyPath: 'id' });
+            subsStore.createIndex('userEmail', 'userEmail', { unique: false });
+        }
       }
-      // Subscriptions store: key is id, with an index on userEmail for lookups
-      if (!dbInstance.objectStoreNames.contains(SUBS_STORE)) {
-        const subsStore = dbInstance.createObjectStore(SUBS_STORE, { keyPath: 'id' });
-        subsStore.createIndex('userEmail', 'userEmail', { unique: false });
+
+      if (oldVersion < 2) {
+        // Seed Admin User
+        const transaction = (event.target as IDBOpenDBRequest).transaction;
+        if(transaction) {
+            const userStore = transaction.objectStore(USER_STORE);
+            const adminUser = {
+                email: 'admin@zensub.cl',
+                password: 'admin',
+                firstName: 'Admin',
+                lastName: 'Zensub',
+                role: UserRole.Admin,
+                status: UserStatus.Active,
+                createdAt: new Date(),
+            };
+            userStore.add(adminUser);
+        }
       }
     };
   });
@@ -46,7 +68,12 @@ export const addUser = (user: User & { password?: string }): Promise<void> => {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(USER_STORE, 'readwrite');
     const store = transaction.objectStore(USER_STORE);
-    const request = store.add(user);
+    const request = store.add({
+        ...user,
+        role: user.role || UserRole.User,
+        status: user.status || UserStatus.Active,
+        createdAt: user.createdAt || new Date(),
+    });
 
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
@@ -57,23 +84,69 @@ export const getUser = (email: string): Promise<(User & { password?: string }) |
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(USER_STORE, 'readonly');
     const store = transaction.objectStore(USER_STORE);
-    const request = store.get(email);
+    const request = store.get(email.toLowerCase());
 
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 };
 
+export const updateUser = (user: User & { password?: string }): Promise<void> => {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(USER_STORE, 'readwrite');
+        const store = transaction.objectStore(USER_STORE);
+        const request = store.put(user);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+};
+
+export const getAllUsers = (): Promise<User[]> => {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(USER_STORE, 'readonly');
+        const store = transaction.objectStore(USER_STORE);
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+};
+
+export const deleteUser = (email: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([USER_STORE, SUBS_STORE], 'readwrite');
+        const userStore = transaction.objectStore(USER_STORE);
+        const subsStore = transaction.objectStore(SUBS_STORE);
+        const subsIndex = subsStore.index('userEmail');
+
+        // Delete user
+        const userDeleteRequest = userStore.delete(email);
+        userDeleteRequest.onerror = () => reject(userDeleteRequest.error);
+
+        // Delete associated subscriptions
+        const subsRequest = subsIndex.openCursor(IDBKeyRange.only(email));
+        subsRequest.onsuccess = () => {
+            const cursor = subsRequest.result;
+            if (cursor) {
+                subsStore.delete(cursor.primaryKey);
+                cursor.continue();
+            }
+        };
+        subsRequest.onerror = () => reject(subsRequest.error);
+
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+    });
+};
+
+
 // --- Subscription Functions ---
 
-export const saveSubscription = (subscription: Subscription, userEmail: string): Promise<void> => {
+export const saveSubscription = (subscription: Omit<Subscription, 'userEmail'>, userEmail: string): Promise<void> => {
     return new Promise((resolve, reject) => {
-      // We need to store the user's email with the subscription to link them
       const subscriptionWithUser = { ...subscription, userEmail };
 
       const transaction = db.transaction(SUBS_STORE, 'readwrite');
       const store = transaction.objectStore(SUBS_STORE);
-      // 'put' works for both adding and updating
       const request = store.put(subscriptionWithUser);
   
       request.onsuccess = () => resolve();
@@ -89,21 +162,45 @@ export const getSubscriptionsForUser = (userEmail: string): Promise<Subscription
       const request = index.getAll(userEmail);
 
       request.onsuccess = () => {
-        // IndexedDB may store dates as strings, so we need to convert them back to Date objects
         if (!request.result) {
             resolve([]);
             return;
         }
-        const subs = request.result.map(sub => ({
+        const subs: Subscription[] = request.result.map((sub: any) => ({
           ...sub,
           renewalDate: new Date(sub.renewalDate),
-          contractDate: sub.contractDate ? new Date(sub.contractDate) : undefined,
+          createdAt: sub.createdAt ? new Date(sub.createdAt) : undefined,
+          canceledAt: sub.canceledAt ? new Date(sub.canceledAt) : undefined,
         }));
         resolve(subs);
       };
       request.onerror = () => reject(request.error);
     });
 };
+
+export const getAllSubscriptions = (): Promise<Subscription[]> => {
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(SUBS_STORE, 'readonly');
+      const store = transaction.objectStore(SUBS_STORE);
+      const request = store.getAll();
+      
+      request.onsuccess = () => {
+         if (!request.result) {
+            resolve([]);
+            return;
+        }
+        const subs: Subscription[] = request.result.map((sub: any) => ({
+          ...sub,
+          renewalDate: new Date(sub.renewalDate),
+          createdAt: sub.createdAt ? new Date(sub.createdAt) : undefined,
+          canceledAt: sub.canceledAt ? new Date(sub.canceledAt) : undefined,
+        }));
+        resolve(subs);
+      };
+      request.onerror = () => reject(request.error);
+    });
+};
+
 
 export const deleteSubscription = (subscriptionId: string): Promise<void> => {
     return new Promise((resolve, reject) => {

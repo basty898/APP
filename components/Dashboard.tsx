@@ -1,6 +1,5 @@
-
 import React, { useState, useMemo } from 'react';
-import { Subscription, User } from '../types';
+import { Subscription, User, SubscriptionStatus } from '../types';
 import { CATEGORY_STYLES } from '../constants';
 import SubscriptionCard from './SubscriptionCard';
 import SubscriptionModal from './SubscriptionModal';
@@ -14,6 +13,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale/es';
 
 type View = 'dashboard' | 'subscriptions' | 'notifications' | 'profile';
+type StatusFilter = 'all' | SubscriptionStatus.Active | SubscriptionStatus.Canceled;
 
 const ZenSubLogo = () => (
     <div className="flex items-center gap-2">
@@ -28,8 +28,8 @@ interface DashboardProps {
     user: User;
     onLogout: () => void;
     subscriptions: Subscription[];
-    addSubscription: (sub: Subscription) => Promise<void>;
-    updateSubscription: (sub: Subscription) => Promise<void>;
+    addSubscription: (sub: Omit<Subscription, 'userEmail'>) => Promise<void>;
+    updateSubscription: (sub: Omit<Subscription, 'userEmail'>) => Promise<void>;
     removeSubscription: (id: string) => Promise<void>;
 }
 
@@ -38,6 +38,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, subscriptions, ad
     const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
     const [subscriptionToDelete, setSubscriptionToDelete] = useState<Subscription | null>(null);
     const [activeView, setActiveView] = useState<View>('dashboard');
+    
+    // State for search and filter in subscriptions view
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
     const handleAddSubscription = () => {
         setEditingSubscription(null);
@@ -55,7 +59,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, subscriptions, ad
         setSubscriptionToDelete(null);
     };
 
-    const handleSaveSubscription = async (sub: Subscription) => {
+    const handleSaveSubscription = async (sub: Omit<Subscription, 'userEmail'>) => {
         if (editingSubscription) {
             await updateSubscription(sub);
         } else {
@@ -66,29 +70,41 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, subscriptions, ad
         setEditingSubscription(null);
     };
 
-    const sortedSubscriptions = useMemo(() => {
-        return [...subscriptions].sort((a, b) => a.renewalDate.getTime() - b.renewalDate.getTime());
+    const activeSubscriptions = useMemo(() => {
+        return subscriptions.filter(s => s.status === SubscriptionStatus.Active);
     }, [subscriptions]);
+
+    const filteredAndSortedSubscriptions = useMemo(() => {
+         return subscriptions
+            .filter(sub => {
+                const searchMatch = sub.platform.toLowerCase().includes(searchTerm.toLowerCase());
+                const statusMatch = statusFilter === 'all' || sub.status === statusFilter;
+                return searchMatch && statusMatch;
+            })
+            .sort((a, b) => a.renewalDate.getTime() - b.renewalDate.getTime());
+    }, [subscriptions, searchTerm, statusFilter]);
 
 
     const totalMonthlyCost = useMemo(() => {
-        return subscriptions.reduce((total, sub) => {
+        return activeSubscriptions.reduce((total, sub) => {
             const monthlyAmount = sub.period === 'Anual' ? sub.amount / 12 : sub.amount;
             if (sub.currency === 'CLP') {
                 return total + monthlyAmount;
             }
             return total;
         }, 0);
-    }, [subscriptions]);
+    }, [activeSubscriptions]);
     
     const upcomingRenewal = useMemo(() => {
         const today = new Date();
-        return sortedSubscriptions.find(s => s.renewalDate >= today);
-    }, [sortedSubscriptions]);
+        return [...activeSubscriptions]
+            .sort((a,b) => a.renewalDate.getTime() - b.renewalDate.getTime())
+            .find(s => s.renewalDate >= today);
+    }, [activeSubscriptions]);
 
     const chartData = useMemo(() => {
         const categoryTotals: { [key: string]: number } = {};
-        subscriptions.forEach(sub => {
+        activeSubscriptions.forEach(sub => {
             const monthlyAmount = sub.period === 'Anual' ? sub.amount / 12 : sub.amount;
             categoryTotals[sub.category] = (categoryTotals[sub.category] || 0) + monthlyAmount;
         });
@@ -99,7 +115,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, subscriptions, ad
             value,
             percent: value / total
         }));
-    }, [subscriptions]);
+    }, [activeSubscriptions]);
 
     const chartColors = useMemo(() => chartData.map(entry => {
         const categoryKey = entry.name as keyof typeof CATEGORY_STYLES;
@@ -112,32 +128,53 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, subscriptions, ad
         }
 
         if (activeView === 'notifications') {
-            return <NotificationsScreen subscriptions={sortedSubscriptions} />;
+            return <NotificationsScreen subscriptions={filteredAndSortedSubscriptions} />;
         }
         
         if (activeView === 'subscriptions') {
             return (
-                 <div className="space-y-3">
+                 <div className="space-y-4">
                     <div className="flex justify-between items-center mb-2">
                         <h2 className="text-xl font-bold text-text-primary">Servicios</h2>
-                        <button className="text-text-secondary hover:text-text-primary">
-                            <Search size={22} />
-                        </button>
                     </div>
-                    {sortedSubscriptions.length > 0 ? sortedSubscriptions.map(sub => (
+
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                        <input
+                            type="text"
+                            placeholder="Buscar por nombre..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-3 py-2 border border-gray-200 bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green"
+                        />
+                    </div>
+                    
+                    <div className="flex gap-2">
+                        {(['all', SubscriptionStatus.Active, SubscriptionStatus.Canceled] as const).map(status => (
+                            <button
+                                key={status}
+                                onClick={() => setStatusFilter(status)}
+                                className={`px-4 py-1.5 text-sm rounded-full transition-colors ${statusFilter === status ? 'bg-brand-green text-white font-semibold' : 'bg-white text-text-secondary hover:bg-gray-100'}`}
+                            >
+                                {status === 'all' ? 'Todas' : status}
+                            </button>
+                        ))}
+                    </div>
+
+                    {filteredAndSortedSubscriptions.length > 0 ? filteredAndSortedSubscriptions.map(sub => (
                         <SubscriptionCard 
                             key={sub.id} 
                             subscription={sub} 
                             onClick={() => handleEditSubscription(sub)}
                         />
-                    )) : <div className="text-center text-text-secondary mt-12">
-                            <p className="mb-4">No has añadido ninguna suscripción todavía.</p>
-                             <button
+                    )) : <div className="text-center text-text-secondary pt-12">
+                            <p className="mb-4">No se encontraron suscripciones con esos criterios.</p>
+                             {subscriptions.length === 0 && <button
                                 onClick={handleAddSubscription}
                                 className="bg-brand-green text-white font-semibold py-2 px-6 rounded-lg hover:bg-opacity-90 transition-all"
                             >
                                 Añadir mi primera suscripción
-                            </button>
+                            </button>}
                         </div>
                     }
                 </div>
@@ -159,7 +196,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, subscriptions, ad
                         {upcomingRenewal ? (
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-brand-purple flex-shrink-0"></div>
-                                <p className="text-sm font-semibold text-text-primary truncate">{upcomingRenewal.name} - {format(upcomingRenewal.renewalDate, 'dd MMM', {locale: es})}</p>
+                                <p className="text-sm font-semibold text-text-primary truncate">{upcomingRenewal.platform} - {format(upcomingRenewal.renewalDate, 'dd MMM', {locale: es})}</p>
                              </div>
                         ) : (
                             <p className="text-sm font-semibold text-text-secondary">-</p>
@@ -181,7 +218,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, subscriptions, ad
                     <h2 className="text-xl font-bold text-text-primary">Suscripciones Activas</h2>
                 </div>
                  <div className="space-y-3">
-                    {sortedSubscriptions.length > 0 ? sortedSubscriptions.slice(0, 3).map(sub => (
+                    {activeSubscriptions.length > 0 ? activeSubscriptions.slice(0, 3).map(sub => (
                         <SubscriptionCard 
                             key={sub.id} 
                             subscription={sub} 
@@ -229,7 +266,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, subscriptions, ad
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 text-center">
                         <h3 className="text-xl font-bold text-text-primary mb-2">Confirmar Eliminación</h3>
                         <p className="text-text-secondary mb-6">
-                            ¿Estás seguro de que quieres eliminar la suscripción a <span className="font-bold">{subscriptionToDelete.name}</span>? Esta acción no se puede deshacer.
+                            ¿Estás seguro de que quieres eliminar la suscripción a <span className="font-bold">{subscriptionToDelete.platform}</span>? Esta acción no se puede deshacer.
                         </p>
                         <div className="flex justify-center gap-4">
                             <button 

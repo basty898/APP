@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Subscription, Category, Currency, Period, PaymentMethod, PlanType } from '../types';
+import { Subscription, Category, Currency, Period, PaymentMethod, PlanType, SubscriptionStatus } from '../types';
 import { X, Save, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface SubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (subscription: Subscription) => void;
+  onSave: (subscription: Omit<Subscription, 'userEmail'>) => void;
   onDelete: (subscription: Subscription) => void;
   subscription: Subscription | null;
 }
 
 const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, onSave, onDelete, subscription }) => {
-  const [formData, setFormData] = useState<Partial<Subscription>>({});
+  const [formData, setFormData] = useState<Partial<Omit<Subscription, 'userEmail'>>>({});
   const [error, setError] = useState<string | null>(null);
 
   const inputStyle = "mt-1 block w-full border-transparent bg-gray-100 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-brand-green focus:bg-white transition";
@@ -23,21 +23,22 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, 
       setFormData({
         ...subscription,
         renewalDate: subscription.renewalDate ? new Date(subscription.renewalDate) : new Date(),
-        contractDate: subscription.contractDate ? new Date(subscription.contractDate) : new Date(),
+        createdAt: subscription.createdAt ? new Date(subscription.createdAt) : new Date(),
       });
     } else {
       setFormData({
-        name: '',
+        platform: '',
         category: Category.Other,
         amount: undefined,
         currency: Currency.CLP,
         period: Period.Monthly,
         renewalDate: new Date(),
-        contractDate: new Date(),
+        createdAt: new Date(),
         paymentMethod: undefined,
         notes: '',
         plan: '',
         enableReminder: true,
+        status: SubscriptionStatus.Active,
       });
     }
   }, [subscription, isOpen]);
@@ -51,6 +52,15 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, 
         return;
     }
 
+    if (name === 'status' && value === SubscriptionStatus.Canceled) {
+        setFormData(prev => ({...prev, status: value as SubscriptionStatus, canceledAt: new Date() }));
+        return;
+    }
+    if (name === 'status' && value !== SubscriptionStatus.Canceled) {
+        setFormData(prev => ({...prev, status: value as SubscriptionStatus, canceledAt: undefined }));
+        return;
+    }
+
     const isNumericField = ['amount'].includes(name);
     setFormData(prev => ({ ...prev, [name]: isNumericField ? (value === '' ? undefined : parseFloat(value)) : value }));
   };
@@ -58,20 +68,18 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     if (value) {
-      // The input value is "YYYY-MM-DD"
       const newDate = new Date(value + 'T00:00:00'); // Prevent timezone issues
       if (!isNaN(newDate.getTime())) {
         setFormData(prev => ({ ...prev, [name]: newDate }));
       }
     } else {
-      // Handle the case where the input is cleared
       setFormData(prev => ({ ...prev, [name]: undefined }));
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.name.trim()) {
+    if (!formData.platform || !formData.platform.trim()) {
         setError('El nombre del servicio es obligatorio.');
         return;
     }
@@ -80,7 +88,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, 
         return;
     }
     setError(null);
-    onSave(formData as Subscription);
+    onSave(formData as Omit<Subscription, 'userEmail'>);
   };
 
   const handleDelete = () => {
@@ -100,9 +108,19 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, 
           <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 text-text-secondary"><X size={24} /></button>
         </div>
         <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del servicio</label>
-            <input type="text" name="name" value={formData.name || ''} onChange={handleChange} className={inputStyle} required />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Plataforma</label>
+                <input type="text" name="platform" value={formData.platform || ''} onChange={handleChange} className={inputStyle} required />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                <select name="status" value={formData.status} onChange={handleChange} className={inputStyle}>
+                  {Object.values(SubscriptionStatus).map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
           </div>
 
           <div>
@@ -140,7 +158,7 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ isOpen, onClose, 
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Contratación</label>
-                <input type="date" name="contractDate" value={formData.contractDate ? format(formData.contractDate, 'yyyy-MM-dd') : ''} onChange={handleDateChange} className={inputStyle} required />
+                <input type="date" name="createdAt" value={formData.createdAt ? format(formData.createdAt, 'yyyy-MM-dd') : ''} onChange={handleDateChange} className={inputStyle} required />
               </div>
           </div>
            <div>

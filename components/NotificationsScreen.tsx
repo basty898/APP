@@ -40,7 +40,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ subscriptions
                 <div key={sub.id} className="bg-white p-4 rounded-xl shadow-sm border border-yellow-300">
                     <div className="flex justify-between items-center">
                         <div>
-                            <p className="font-bold text-text-primary">{sub.name}</p>
+                            <p className="font-bold text-text-primary">{sub.platform}</p>
                             <p className="text-sm text-text-secondary">{new Intl.NumberFormat('es-CL', { style: 'currency', currency: sub.currency, maximumFractionDigits: 0 }).format(sub.amount)}</p>
                         </div>
                         <div className="text-right">

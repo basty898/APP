@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Subscription, Category, Currency, Period, PlanType } from '../types';
+import { Subscription, Category, Currency, Period, PlanType, SubscriptionStatus } from '../types';
 import { CATEGORY_STYLES } from '../constants';
 import { format } from 'date-fns';
 import { ArrowLeft, Check } from 'lucide-react';
 
 interface OnboardingScreenProps {
-  onComplete: (subscriptions: Subscription[]) => void;
+  onComplete: (subscriptions: Omit<Subscription, 'userEmail'>[]) => void;
 }
 
 const popularServices = [
@@ -20,8 +20,8 @@ const popularServices = [
 
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
   const [step, setStep] = useState(0);
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [currentSubData, setCurrentSubData] = useState<Partial<Subscription>>({});
+  const [subscriptions, setSubscriptions] = useState<Omit<Subscription, 'userEmail'>[]>([]);
+  const [currentSubData, setCurrentSubData] = useState<Partial<Omit<Subscription, 'userEmail'>>>({});
   const [isAdding, setIsAdding] = useState(false);
 
   const totalSteps = popularServices.length;
@@ -31,14 +31,15 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
       const service = popularServices[step];
       setCurrentSubData({
         id: Date.now().toString(),
-        name: service.name,
+        platform: service.name,
         category: service.category,
         currency: Currency.CLP,
         period: Period.Monthly,
         renewalDate: new Date(),
-        contractDate: new Date(),
+        createdAt: new Date(),
         plan: undefined,
         enableReminder: true,
+        status: SubscriptionStatus.Active,
       });
       setIsAdding(true);
     } else {
@@ -56,7 +57,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
   
   const handleSaveSubscription = (e: React.FormEvent) => {
       e.preventDefault();
-      setSubscriptions(prev => [...prev, currentSubData as Subscription]);
+      setSubscriptions(prev => [...prev, currentSubData as Omit<Subscription, 'userEmail'>]);
       goToNextStep();
   }
 
@@ -129,7 +130,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
         
         {isAdding && (
             <form onSubmit={handleSaveSubscription} className="w-full max-w-sm space-y-4 animate-fade-in">
-                <h2 className="text-2xl font-bold text-text-primary mb-4">Añadir {currentSubData.name}</h2>
+                <h2 className="text-2xl font-bold text-text-primary mb-4">Añadir {currentSubData.platform}</h2>
                 <div>
                   <label className="block text-sm font-medium text-left text-gray-700 mb-1">¿Cuánto pagas al mes?</label>
                   <input type="number" name="amount" min="1" onChange={handleDataChange} className="w-full p-3 bg-gray-100 rounded-lg" required placeholder="Ej: 8990" />
@@ -145,7 +146,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-left text-gray-700 mb-1">¿Cuándo contrataste el servicio?</label>
-                  <input type="date" name="contractDate" value={currentSubData.contractDate ? format(currentSubData.contractDate, 'yyyy-MM-dd') : ''} onChange={handleDateChange} className="w-full p-3 bg-gray-100 rounded-lg" required />
+                  <input type="date" name="createdAt" value={currentSubData.createdAt ? format(currentSubData.createdAt, 'yyyy-MM-dd') : ''} onChange={handleDateChange} className="w-full p-3 bg-gray-100 rounded-lg" required />
                 </div>
                  <div>
                   <label className="block text-sm font-medium text-left text-gray-700 mb-1">Próxima fecha de pago</label>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User } from '../types';
+import { User, UserRole, UserStatus } from '../types';
 import { Building, User as UserIcon, Lock, Mail, Phone, KeyRound, ArrowLeft } from 'lucide-react';
 import * as db from '../db';
 
@@ -45,6 +45,12 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
       try {
         const foundUser = await db.getUser(email);
         
+        if (foundUser?.status === UserStatus.Blocked) {
+          setError('Tu cuenta ha sido bloqueada. Contacta al administrador.');
+          setIsLoading(false);
+          return;
+        }
+        
         if (foundUser && foundUser.password === password) {
           const { password: _, ...userToReturn } = foundUser;
           onAuthSuccess(userToReturn, false);
@@ -87,6 +93,9 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                 email: registerEmail.toLowerCase(),
                 phone,
                 password: registerPassword,
+                role: UserRole.User,
+                status: UserStatus.Active,
+                createdAt: new Date(),
             };
             await db.addUser(newUser);
             

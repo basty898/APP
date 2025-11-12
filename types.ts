@@ -32,19 +32,38 @@ export enum PlanType {
   Premium = 'Premium',
 }
 
+export enum SubscriptionStatus {
+    Active = 'Activa',
+    Paused = 'Pausada',
+    Canceled = 'Cancelada',
+}
+
 export interface Subscription {
   id: string;
-  name: string;
+  platform: string;
   category: Category;
   amount: number;
   currency: Currency;
   period: Period;
   renewalDate: Date;
-  contractDate?: Date;
+  createdAt?: Date;
   paymentMethod?: PaymentMethod;
   notes?: string;
   plan?: PlanType | string;
   enableReminder?: boolean;
+  status: SubscriptionStatus;
+  canceledAt?: Date;
+  userEmail: string;
+}
+
+export enum UserRole {
+    Admin = 'ADMIN',
+    User = 'USER',
+}
+
+export enum UserStatus {
+    Active = 'active',
+    Blocked = 'blocked',
 }
 
 export interface User {
@@ -52,4 +71,9 @@ export interface User {
   lastName: string;
   email: string;
   phone?: string;
+  // New fields for admin functionality
+  role: UserRole;
+  status: UserStatus;
+  createdAt: Date;
+  lastLoginAt?: Date;
 }
