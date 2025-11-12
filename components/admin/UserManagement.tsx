@@ -3,7 +3,7 @@ import { User, Subscription, UserStatus, UserRole } from '../../types';
 import * as db from '../../db';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale/es';
-import { Search, Download, Edit, Trash2, UserX, UserCheck, X, Save } from 'lucide-react';
+import { Search, Download, Edit, Trash2, UserX, UserCheck, X, Save, RefreshCw } from 'lucide-react';
 
 const UserEditModal: React.FC<{ user: User; onClose: () => void; onSave: (user: User) => void; }> = ({ user, onClose, onSave }) => {
     const [formData, setFormData] = useState(user);
@@ -80,13 +80,18 @@ const UserManagement: React.FC = () => {
     
     const fetchAllData = async () => {
         setIsLoading(true);
-        const [allUsers, allSubs] = await Promise.all([
-            db.getAllUsers(),
-            db.getAllSubscriptions(),
-        ]);
-        setUsers(allUsers.filter(u => u.role !== UserRole.Admin)); // Don't show admin
-        setSubscriptions(allSubs);
-        setIsLoading(false);
+        try {
+            const [allUsers, allSubs] = await Promise.all([
+                db.getAllUsers(),
+                db.getAllSubscriptions(),
+            ]);
+            setUsers(allUsers.filter(u => u.role !== UserRole.Admin)); // Don't show admin
+            setSubscriptions(allSubs);
+        } catch (error) {
+            console.error("Failed to fetch user data:", error);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     useEffect(() => {
@@ -192,7 +197,7 @@ const UserManagement: React.FC = () => {
                         className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green"
                     />
                 </div>
-                <div className="flex items-center gap-4 w-full md:w-auto">
+                <div className="flex items-center gap-2 w-full md:w-auto">
                      <select 
                         value={statusFilter}
                         onChange={e => setStatusFilter(e.target.value as any)}
@@ -202,6 +207,9 @@ const UserManagement: React.FC = () => {
                         <option value={UserStatus.Active}>Activo</option>
                         <option value={UserStatus.Blocked}>Bloqueado</option>
                     </select>
+                     <button onClick={fetchAllData} className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-text-secondary font-semibold rounded-lg hover:bg-gray-200 transition-colors" title="Actualizar datos">
+                        <RefreshCw size={18} />
+                    </button>
                     <button onClick={exportToCSV} className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition-colors">
                         <Download size={18} />
                         Exportar

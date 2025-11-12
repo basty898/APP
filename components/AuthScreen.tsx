@@ -51,7 +51,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
           return;
         }
         
-        if (foundUser && foundUser.password === password) {
+        if (foundUser && foundUser.password === btoa(password)) {
           const { password: _, ...userToReturn } = foundUser;
           onAuthSuccess(userToReturn, false);
         } else {

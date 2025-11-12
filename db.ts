@@ -48,7 +48,7 @@ export const initDB = (): Promise<void> => {
             const userStore = transaction.objectStore(USER_STORE);
             const adminUser = {
                 email: 'admin@zensub.cl',
-                password: 'admin',
+                password: btoa('admin'), // Encode password for security
                 firstName: 'Admin',
                 lastName: 'Zensub',
                 role: UserRole.Admin,
@@ -68,8 +68,15 @@ export const addUser = (user: User & { password?: string }): Promise<void> => {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(USER_STORE, 'readwrite');
     const store = transaction.objectStore(USER_STORE);
+    
+    // Encode password before saving for security
+    const userToSave = { ...user };
+    if (userToSave.password) {
+        userToSave.password = btoa(userToSave.password);
+    }
+
     const request = store.add({
-        ...user,
+        ...userToSave,
         role: user.role || UserRole.User,
         status: user.status || UserStatus.Active,
         createdAt: user.createdAt || new Date(),
