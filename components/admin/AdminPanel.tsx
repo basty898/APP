@@ -1,20 +1,25 @@
 import React, { useState } from 'react';
 import { User } from '../../types';
-import { LogOut, Users, BarChart2 } from 'lucide-react';
-import UserManagement from './UserManagement';
+import { LayoutDashboard, Users, UserPlus, LogOut, Building } from 'lucide-react';
 import AnalyticsDashboard from './AnalyticsDashboard';
+import UserManagement from './UserManagement';
+import NewUserSignups from './NewUserSignups';
+
+type AdminView = 'analytics' | 'users' | 'signups';
 
 interface AdminPanelProps {
-  user: User;
-  onLogout: () => void;
+    user: User;
+    onLogout: () => void;
 }
 
-type AdminView = 'dashboard' | 'users';
-
-const NavItem = ({ icon: Icon, label, isActive, onClick }: { icon: React.ElementType, label: string, isActive: boolean, onClick: () => void }) => (
+const NavItem: React.FC<{ icon: React.ElementType, label: string, active: boolean, onClick: () => void }> = ({ icon: Icon, label, active, onClick }) => (
     <button
         onClick={onClick}
-        className={`flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg transition-colors ${isActive ? 'bg-brand-green/20 text-brand-green' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
+        className={`flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+            active
+                ? 'bg-brand-green text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-200'
+        }`}
     >
         <Icon className="mr-3" size={20} />
         <span>{label}</span>
@@ -22,52 +27,52 @@ const NavItem = ({ icon: Icon, label, isActive, onClick }: { icon: React.Element
 );
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ user, onLogout }) => {
-    const [activeView, setActiveView] = useState<AdminView>('dashboard');
+    const [activeView, setActiveView] = useState<AdminView>('analytics');
 
     const renderContent = () => {
         switch (activeView) {
-            case 'dashboard':
+            case 'analytics':
                 return <AnalyticsDashboard />;
             case 'users':
                 return <UserManagement />;
+            case 'signups':
+                return <NewUserSignups />;
             default:
                 return <AnalyticsDashboard />;
         }
-    }
-    
+    };
+
     return (
-        <div className="flex h-screen bg-gray-100 font-sans">
-            {/* Sidebar */}
-            <aside className="w-64 bg-gray-800 text-white flex flex-col">
-                <div className="h-20 flex items-center justify-center border-b border-gray-700">
-                    <h1 className="text-xl font-bold">ZenSub Admin</h1>
+        <div className="flex min-h-screen bg-gray-100">
+            <aside className="w-64 bg-white shadow-lg flex flex-col p-4">
+                <div className="flex items-center gap-2 p-4 border-b mb-6">
+                    <Building className="text-brand-green" size={28}/>
+                    <span className="font-bold text-xl text-text-primary">Admin Panel</span>
                 </div>
-                <nav className="flex-1 p-4 space-y-2">
-                    <NavItem icon={BarChart2} label="Gráficos" isActive={activeView === 'dashboard'} onClick={() => setActiveView('dashboard')} />
-                    <NavItem icon={Users} label="Gestión de Usuarios" isActive={activeView === 'users'} onClick={() => setActiveView('users')} />
+                <nav className="flex-grow space-y-2">
+                    <NavItem icon={LayoutDashboard} label="Analíticas" active={activeView === 'analytics'} onClick={() => setActiveView('analytics')} />
+                    <NavItem icon={Users} label="Gestión de Usuarios" active={activeView === 'users'} onClick={() => setActiveView('users')} />
+                    <NavItem icon={UserPlus} label="Nuevos Registros" active={activeView === 'signups'} onClick={() => setActiveView('signups')} />
                 </nav>
-                <div className="p-4 border-t border-gray-700">
-                     <div className="mb-4">
-                        <p className="text-sm font-semibold">{user.firstName} {user.lastName}</p>
-                        <p className="text-xs text-gray-400">{user.email}</p>
-                    </div>
-                    <button
+                <div className="mt-auto">
+                     <button
                         onClick={onLogout}
-                        className="flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500 hover:text-white transition-colors"
+                        className="flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg text-red-600 hover:bg-red-100 transition-colors"
                     >
                         <LogOut className="mr-3" size={20} />
                         <span>Cerrar Sesión</span>
                     </button>
                 </div>
             </aside>
-
-            {/* Main Content */}
-            <main className="flex-1 flex flex-col overflow-hidden">
-                <div className="flex-1 overflow-x-hidden overflow-y-auto bg-app-background">
-                    <div className="p-8">
-                      {renderContent()}
+            <main className="flex-1 p-8 overflow-y-auto">
+                 <header className="flex justify-between items-center mb-8">
+                    <h1 className="text-3xl font-bold text-text-primary capitalize">{activeView === 'signups' ? 'Nuevos Registros' : activeView}</h1>
+                    <div className="text-right">
+                        <p className="font-semibold">{user.firstName} {user.lastName}</p>
+                        <p className="text-sm text-gray-500">{user.email}</p>
                     </div>
-                </div>
+                </header>
+                {renderContent()}
             </main>
         </div>
     );

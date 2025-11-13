@@ -1,9 +1,7 @@
-
 import React from 'react';
-import { Subscription } from '../types';
+import { Subscription, SubscriptionStatus } from '../types';
 import { Bell } from 'lucide-react';
-import { differenceInDays, isFuture, parseISO, format } from 'date-fns';
-import SubscriptionCard from './SubscriptionCard';
+import { differenceInDays, isFuture, format } from 'date-fns';
 import { es } from 'date-fns/locale/es';
 
 
@@ -16,7 +14,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ subscriptions
   const today = new Date();
 
   const upcomingRenewals = subscriptions.filter(sub => {
-    if (!sub.enableReminder || !isFuture(sub.renewalDate)) {
+    if (sub.status !== SubscriptionStatus.Active || !sub.enableReminder || !isFuture(sub.renewalDate)) {
         return false;
     }
     const daysUntilRenewal = differenceInDays(sub.renewalDate, today);

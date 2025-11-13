@@ -27,7 +27,6 @@ export const useAnalytics = () => {
         
         const activeSubscriptions = activeSubs.length;
 
-        // Calculate average monthly value from all active subscriptions
         let averageMonthlyValue = 0;
         if (activeSubscriptions > 0) {
             const totalMonthlyValue = activeSubs.reduce((sum, sub) => {
@@ -37,7 +36,6 @@ export const useAnalytics = () => {
             averageMonthlyValue = totalMonthlyValue / activeSubscriptions;
         }
         
-        // Calculate all-time churn rate
         const canceledSubsCount = subscriptions.filter(s => s.status === SubscriptionStatus.Canceled).length;
         const totalSubsForChurn = activeSubscriptions + canceledSubsCount;
         const churnRate = totalSubsForChurn > 0 ? (canceledSubsCount / totalSubsForChurn) * 100 : 0;

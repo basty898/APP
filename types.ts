@@ -71,9 +71,17 @@ export interface User {
   lastName: string;
   email: string;
   phone?: string;
-  // New fields for admin functionality
   role: UserRole;
   status: UserStatus;
   createdAt: Date;
   lastLoginAt?: Date;
+}
+
+export interface SignupRecord {
+  signup_date: Date;
+  users: {
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
 }

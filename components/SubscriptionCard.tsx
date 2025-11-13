@@ -2,7 +2,6 @@ import React from 'react';
 import { Subscription, SubscriptionStatus } from '../types';
 import { CATEGORY_STYLES } from '../constants';
 import { format } from 'date-fns';
-// FIX: The locale must be imported from its specific path.
 import { es } from 'date-fns/locale/es';
 
 interface SubscriptionCardProps {

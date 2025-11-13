@@ -70,7 +70,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
    const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     if (value) {
-      const newDate = new Date(value + 'T00:00:00'); // Prevent timezone issues
+      const newDate = new Date(value + 'T00:00:00');
       if (!isNaN(newDate.getTime())) {
         setCurrentSubData(prev => ({ ...prev, [name]: newDate }));
       }

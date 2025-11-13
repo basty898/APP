@@ -33,41 +33,28 @@ const App: React.FC = () => {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Initialize the database on component mount
   useEffect(() => {
-    db.initDB().then(() => {
-      // Simulate a small delay for a smoother loading experience
-      setTimeout(() => setIsLoading(false), 500);
-    }).catch(error => {
-      console.error("Failed to initialize database", error);
-      setIsLoading(false);
-    });
+    db.initDB();
+    setTimeout(() => setIsLoading(false), 500);
   }, []);
 
   const handleAuthSuccess = async (userData: User, isNew: boolean) => {
     try {
-      const fullUser = await db.getUser(userData.email);
-      if (!fullUser) {
-        throw new Error("User data could not be retrieved after authentication.");
-      };
-      
-      // Update last login time in a separate, secure operation
-      await db.updateLastLogin(fullUser.email);
-
-      setUser(fullUser);
+      setUser(userData);
       setIsAuthenticated(true);
       setIsNewUser(isNew);
+      
+      await db.updateLastLogin(userData.email);
 
       if (isNew) {
         setSubscriptions([]);
       } else {
-        const userSubscriptions = await db.getSubscriptionsForUser(fullUser.email);
+        const userSubscriptions = await db.getSubscriptionsForUser(userData.email);
         setSubscriptions(userSubscriptions);
       }
     } catch (error) {
       console.error("Failed during post-authentication process:", error);
-      handleLogout(); // Reset to a clean state
-      // Re-throw the error to be caught by the AuthScreen's handler
+      handleLogout();
       throw error;
     }
   };
@@ -89,8 +76,6 @@ const App: React.FC = () => {
     setIsNewUser(false);
     setSubscriptions([]);
   };
-  
-  // --- Subscription CRUD Operations ---
   
   const addSubscription = async (sub: Omit<Subscription, 'userEmail'>) => {
       if(!user?.email) return;
@@ -139,7 +124,6 @@ const App: React.FC = () => {
       return <AdminPanel user={user} onLogout={handleLogout} />;
     }
 
-    // Regular User Flow
     if (isNewUser) {
       return <OnboardingScreen onComplete={handleOnboardingComplete} />;
     }

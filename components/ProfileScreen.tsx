@@ -12,13 +12,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout, onUpdateU
   const [editableUser, setEditableUser] = useState<UserType>(user);
   const [hasChanges, setHasChanges] = useState(false);
   const [isLogoutConfirmVisible, setIsLogoutConfirmVisible] = useState(false);
-  
   const [showPasswordFields, setShowPasswordFields] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
-
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -59,7 +57,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ user, onLogout, onUpdateU
       setPasswordError('La nueva contraseña debe tener al menos 6 caracteres.');
       return;
     }
-    // Simulation
     console.log("Changing password...");
     alert("Contraseña cambiada con éxito (simulación).");
     setShowPasswordFields(false);

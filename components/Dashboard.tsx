@@ -9,7 +9,6 @@ import ProfileScreen from './ProfileScreen';
 import NotificationsScreen from './NotificationsScreen';
 import { Search, Plus } from 'lucide-react';
 import { format } from 'date-fns';
-// FIX: The locale must be imported from its specific path.
 import { es } from 'date-fns/locale/es';
 
 type View = 'dashboard' | 'subscriptions' | 'notifications' | 'profile';
@@ -39,8 +38,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, subscriptions, ad
     const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
     const [subscriptionToDelete, setSubscriptionToDelete] = useState<Subscription | null>(null);
     const [activeView, setActiveView] = useState<View>('dashboard');
-    
-    // State for search and filter in subscriptions view
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
@@ -85,7 +82,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, subscriptions, ad
             .sort((a, b) => a.renewalDate.getTime() - b.renewalDate.getTime());
     }, [subscriptions, searchTerm, statusFilter]);
 
-
     const totalMonthlyCost = useMemo(() => {
         return activeSubscriptions.reduce((total, sub) => {
             const monthlyAmount = sub.period === 'Anual' ? sub.amount / 12 : sub.amount;
@@ -129,7 +125,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, subscriptions, ad
         }
 
         if (activeView === 'notifications') {
-            return <NotificationsScreen subscriptions={filteredAndSortedSubscriptions} />;
+            return <NotificationsScreen subscriptions={subscriptions} />;
         }
         
         if (activeView === 'subscriptions') {
@@ -182,7 +178,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout, subscriptions, ad
             )
         }
 
-        // Dashboard View
         return (
             <>
                 <p className="text-lg text-text-secondary mb-6">Hola, {user.firstName}</p>

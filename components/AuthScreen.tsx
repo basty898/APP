@@ -9,23 +9,16 @@ interface AuthScreenProps {
 
 const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
   const [view, setView] = useState<'login' | 'register' | 'forgotPassword'>('login');
-
-  // Login state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-
-  // Register state
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [phone, setPhone] = useState('');
-
-  // Forgot Password state
   const [recoveryEmail, setRecoveryEmail] = useState('');
   const [recoveryMessage, setRecoveryMessage] = useState('');
-  
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -98,6 +91,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
                 createdAt: new Date(),
             };
             await db.addUser(newUser);
+            await db.recordSignup(newUser.email);
             
             delete newUser.password;
             await onAuthSuccess(newUser as User, true);

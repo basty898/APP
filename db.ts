@@ -1,169 +1,191 @@
-import { createClient } from '@supabase/supabase-js';
-import { User, Subscription, UserRole, UserStatus } from './types';
+import { User, Subscription, UserRole, UserStatus, SignupRecord } from './types';
 
-const supabaseUrl = 'https://xiwaqbxypkarqhfrlmfk.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhpd2FxYnh5cGthcnFoZnJsbWZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI5NjkwNzQsImV4cCI6MjA3ODU0NTA3NH0.FcgynWZwFBJpjMNMt6vOUxxPFR3sE0AdWpuBbWe8oSY';
+// =================================================================================
+// BASE DE DATOS LOCAL CON LOCALSTORAGE
+// =================================================================================
+// La aplicación utiliza el almacenamiento local del navegador para persistir los datos.
+// No se requiere una base de datos externa ni configuración de API.
+// =================================================================================
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// initDB is kept for compatibility with App.tsx, but it doesn't need to do anything with Supabase.
-export const initDB = (): Promise<void> => {
-    return Promise.resolve();
+const USERS_KEY = 'zensub_users';
+const SUBSCRIPTIONS_KEY = 'zensub_subscriptions';
+const SIGNUPS_KEY = 'zensub_signups';
+
+// --- Funciones de Utilidad ---
+
+const getUsersFromStorage = (): (User & { password?: string })[] => {
+    const data = localStorage.getItem(USERS_KEY);
+    return data ? JSON.parse(data).map((u: any) => ({
+      ...u,
+      createdAt: new Date(u.createdAt),
+      lastLoginAt: u.lastLoginAt ? new Date(u.lastLoginAt) : undefined,
+    })) : [];
 };
 
-// --- User Functions ---
+const getSubscriptionsFromStorage = (): Subscription[] => {
+    const data = localStorage.getItem(SUBSCRIPTIONS_KEY);
+    return data ? JSON.parse(data).map((s: any) => ({
+      ...s,
+      renewalDate: new Date(s.renewalDate),
+      createdAt: s.createdAt ? new Date(s.createdAt) : undefined,
+      canceledAt: s.canceledAt ? new Date(s.canceledAt) : undefined,
+    })) : [];
+};
+
+const getSignupsFromStorage = (): any[] => {
+    const data = localStorage.getItem(SIGNUPS_KEY);
+    return data ? JSON.parse(data) : [];
+}
+
+// --- API de la Base de Datos ---
+
+export const initDB = (): void => {
+    // Initialize storage if keys don't exist
+    if (localStorage.getItem(USERS_KEY) === null) {
+        localStorage.setItem(USERS_KEY, JSON.stringify([]));
+    }
+    if (localStorage.getItem(SUBSCRIPTIONS_KEY) === null) {
+        localStorage.setItem(SUBSCRIPTIONS_KEY, JSON.stringify([]));
+    }
+    if (localStorage.getItem(SIGNUPS_KEY) === null) {
+        localStorage.setItem(SIGNUPS_KEY, JSON.stringify([]));
+    }
+
+    // Ensure the admin user always exists
+    const users = getUsersFromStorage();
+    const adminExists = users.some(u => u.email === 'admin@zensub.cl');
+
+    if (!adminExists) {
+        const adminUser = {
+            firstName: 'Admin',
+            lastName: 'Zen',
+            email: 'admin@zensub.cl',
+            password: btoa('admin'), // Inseguro, solo para demo
+            role: UserRole.Admin,
+            status: UserStatus.Active,
+            createdAt: new Date(),
+        };
+        users.push(adminUser);
+        localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    }
+};
 
 export const addUser = async (user: User & { password?: string }): Promise<void> => {
-  const userToSave = { 
-    ...user,
-    role: user.role || UserRole.User,
-    status: user.status || UserStatus.Active,
-    createdAt: user.createdAt || new Date(),
-  };
-
-  if (userToSave.password) {
-    userToSave.password = btoa(userToSave.password);
-  }
-
-  const { error } = await supabase.from('users').insert(userToSave);
-  if (error) {
-    console.error('Supabase addUser error:', error);
-    throw error;
-  }
+    const users = getUsersFromStorage();
+    if (users.find(u => u.email === user.email.toLowerCase())) {
+        throw new Error('Este correo electrónico ya está registrado.');
+    }
+    const newUser = {
+        ...user,
+        email: user.email.toLowerCase(),
+        password: user.password ? btoa(user.password) : undefined,
+    };
+    users.push(newUser);
+    localStorage.setItem(USERS_KEY, JSON.stringify(users));
 };
 
-// This function now returns the full user object including password for auth check
 export const getFullUserForAuth = async (email: string): Promise<(User & { password?: string }) | undefined> => {
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('email', email.toLowerCase())
-    .single();
-
-  if (error && error.code !== 'PGRST116') { // PGRST116: "No rows found"
-    console.error('Supabase getFullUserForAuth error:', error);
-    throw error;
-  }
-  
-  return data ? data : undefined;
+    const users = getUsersFromStorage();
+    return users.find(u => u.email === email.toLowerCase());
 };
 
 
 export const getUser = async (email: string): Promise<User | undefined> => {
-  const { data, error } = await supabase
-    .from('users')
-    .select('firstName, lastName, email, phone, role, status, createdAt, lastLoginAt')
-    .eq('email', email.toLowerCase())
-    .single();
-
-  if (error && error.code !== 'PGRST116') { // PGRST116: "No rows found"
-    console.error('Supabase getUser error:', error);
-    throw error;
-  }
-  
-  if (!data) {
+    const users = getUsersFromStorage();
+    const foundUser = users.find(u => u.email === email.toLowerCase());
+    if (foundUser) {
+        const { password, ...userToReturn } = foundUser;
+        return userToReturn;
+    }
     return undefined;
-  }
-
-  // Convert date strings to Date objects to match the User type
-  return {
-    ...data,
-    createdAt: new Date(data.createdAt),
-    lastLoginAt: data.lastLoginAt ? new Date(data.lastLoginAt) : undefined,
-  };
 };
 
 export const updateUser = async (user: User, originalEmail: string): Promise<void> => {
-    const payload: Partial<User> = { ...user };
-    
-    const { error } = await supabase
-        .from('users')
-        .update(payload)
-        .eq('email', originalEmail); 
-    
-    if (error) {
-        console.error('Supabase updateUser error:', error);
-        throw error;
+    let users = getUsersFromStorage();
+    const userIndex = users.findIndex(u => u.email === originalEmail.toLowerCase());
+    if (userIndex !== -1) {
+        const currentUserData = users[userIndex];
+        users[userIndex] = { ...currentUserData, ...user };
+        localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    } else {
+        throw new Error('Usuario no encontrado para actualizar.');
     }
 };
 
 export const updateLastLogin = async (email: string): Promise<void> => {
-    const { error } = await supabase
-        .from('users')
-        .update({ lastLoginAt: new Date() })
-        .eq('email', email);
-    if (error) {
-        console.error('Supabase updateLastLogin error:', error);
-        throw error;
+    let users = getUsersFromStorage();
+    const userIndex = users.findIndex(u => u.email === email.toLowerCase());
+    if (userIndex !== -1) {
+        users[userIndex].lastLoginAt = new Date();
+        localStorage.setItem(USERS_KEY, JSON.stringify(users));
     }
-}
+};
+
 
 export const getAllUsers = async (): Promise<User[]> => {
-    const { data, error } = await supabase.from('users').select('firstName, lastName, email, phone, role, status, createdAt, lastLoginAt');
-    if (error) {
-        console.error('Supabase getAllUsers error:', error);
-        throw error;
-    }
-    
-    return (data || []).map(user => ({
-      ...user,
-      createdAt: new Date(user.createdAt),
-      lastLoginAt: user.lastLoginAt ? new Date(user.lastLoginAt) : undefined,
-    }));
+    const users = getUsersFromStorage();
+    return users.map(({ password, ...user }) => user);
 };
+
 
 export const deleteUser = async (email: string): Promise<void> => {
-    const { error } = await supabase.from('users').delete().eq('email', email);
-     if (error) {
-        console.error('Supabase deleteUser error:', error);
-        throw error;
-    }
+    let users = getUsersFromStorage();
+    users = users.filter(u => u.email !== email.toLowerCase());
+    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+
+    let subscriptions = getSubscriptionsFromStorage();
+    subscriptions = subscriptions.filter(s => s.userEmail !== email.toLowerCase());
+    localStorage.setItem(SUBSCRIPTIONS_KEY, JSON.stringify(subscriptions));
 };
 
-
-// --- Subscription Functions ---
-
 export const saveSubscription = async (subscription: Omit<Subscription, 'userEmail'>, userEmail: string): Promise<void> => {
-    const subscriptionWithUser = { ...subscription, userEmail };
-    const { error } = await supabase.from('subscriptions').upsert(subscriptionWithUser);
-    if (error) {
-        console.error('Supabase saveSubscription error:', error);
-        throw error;
+    let subscriptions = getSubscriptionsFromStorage();
+    const index = subscriptions.findIndex(s => s.id === subscription.id);
+    if (index !== -1) {
+        subscriptions[index] = { ...subscription, userEmail };
+    } else {
+        subscriptions.push({ ...subscription, userEmail });
     }
+    localStorage.setItem(SUBSCRIPTIONS_KEY, JSON.stringify(subscriptions));
 };
 
 export const getSubscriptionsForUser = async (userEmail: string): Promise<Subscription[]> => {
-    const { data, error } = await supabase.from('subscriptions').select('*').eq('userEmail', userEmail);
-    if (error) {
-        console.error('Supabase getSubscriptionsForUser error:', error);
-        throw error;
-    }
-    return (data || []).map(sub => ({
-        ...sub,
-        renewalDate: new Date(sub.renewalDate),
-        createdAt: sub.createdAt ? new Date(sub.createdAt) : undefined,
-        canceledAt: sub.canceledAt ? new Date(sub.canceledAt) : undefined,
-    }));
+    const subscriptions = getSubscriptionsFromStorage();
+    return subscriptions.filter(s => s.userEmail === userEmail.toLowerCase());
 };
 
 export const getAllSubscriptions = async (): Promise<Subscription[]> => {
-    const { data, error } = await supabase.from('subscriptions').select('*');
-    if (error) {
-        console.error('Supabase getAllSubscriptions error:', error);
-        throw error;
-    }
-    return (data || []).map(sub => ({
-        ...sub,
-        renewalDate: new Date(sub.renewalDate),
-        createdAt: sub.createdAt ? new Date(sub.createdAt) : undefined,
-        canceledAt: sub.canceledAt ? new Date(sub.canceledAt) : undefined,
-    }));
+    return getSubscriptionsFromStorage();
 };
 
 export const deleteSubscription = async (subscriptionId: string): Promise<void> => {
-    const { error } = await supabase.from('subscriptions').delete().eq('id', subscriptionId);
-    if (error) {
-        console.error('Supabase deleteSubscription error:', error);
-        throw error;
+    let subscriptions = getSubscriptionsFromStorage();
+    subscriptions = subscriptions.filter(s => s.id !== subscriptionId);
+    localStorage.setItem(SUBSCRIPTIONS_KEY, JSON.stringify(subscriptions));
+};
+
+export const recordSignup = async (userEmail: string): Promise<void> => {
+    const signups = getSignupsFromStorage();
+    const users = getUsersFromStorage();
+    const user = users.find(u => u.email === userEmail.toLowerCase());
+    if (user) {
+        signups.push({ 
+            signup_date: new Date(),
+            users: {
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+            }
+        });
+        localStorage.setItem(SIGNUPS_KEY, JSON.stringify(signups));
     }
+};
+
+export const getNewSignups = async (): Promise<SignupRecord[]> => {
+    const signups = getSignupsFromStorage();
+     return signups.map((s: any) => ({
+      ...s,
+      signup_date: new Date(s.signup_date),
+    }));
 };

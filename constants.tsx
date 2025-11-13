@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Category } from './types';
 import { Tv, Music, Gamepad2, Code, Dumbbell, Newspaper, Package } from 'lucide-react';
