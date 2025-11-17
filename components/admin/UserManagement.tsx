@@ -1,26 +1,32 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as db from '../../db';
-import { User, UserStatus, UserRole } from '../../types';
+import { User, UserStatus, UserRole, Subscription } from '../../types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale/es';
-import { Search, Edit, Trash2, MoreVertical, Lock, Unlock, X } from 'lucide-react';
+import { Search, Lock, Unlock, Trash2, FileText } from 'lucide-react';
+import jsPDF from 'jspdf';
 
 const UserManagement: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
+    const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | UserStatus>('all');
     const [isLoading, setIsLoading] = useState(true);
     const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
-    const fetchUsers = async () => {
+    const fetchData = async () => {
         setIsLoading(true);
-        const allUsers = await db.getAllUsers();
+        const [allUsers, allSubs] = await Promise.all([
+            db.getAllUsers(),
+            db.getAllSubscriptions()
+        ]);
         setUsers(allUsers.filter(u => u.role !== UserRole.Admin));
+        setSubscriptions(allSubs);
         setIsLoading(false);
     };
 
     useEffect(() => {
-        fetchUsers();
+        fetchData();
     }, []);
 
     const filteredUsers = useMemo(() => {
@@ -47,15 +53,70 @@ const UserManagement: React.FC = () => {
         if (!userToDelete) return;
         await db.deleteUser(userToDelete.email);
         setUserToDelete(null);
-        fetchUsers();
+        fetchData();
+    };
+
+    const exportUsersToPDF = () => {
+        const doc = new jsPDF();
+        const pageHeight = doc.internal.pageSize.height;
+        const margin = 14;
+        let y = 20;
+
+        doc.setFontSize(18);
+        doc.text("Reporte de Usuarios y Suscripciones", margin, y);
+        y += 15;
+
+        filteredUsers.forEach(user => {
+            if (y > pageHeight - 30) {
+                doc.addPage();
+                y = 20;
+            }
+
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${user.firstName} ${user.lastName} (${user.email})`, margin, y);
+            y += 6;
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.text(`Estado: ${user.status === UserStatus.Active ? 'Activo' : 'Bloqueado'}`, margin, y);
+            y += 6;
+
+            const userSubscriptions = subscriptions.filter(sub => sub.userEmail === user.email);
+
+            if (userSubscriptions.length > 0) {
+                doc.setFont('helvetica', 'bold');
+                doc.text("Suscripciones:", margin, y);
+                y += 5;
+
+                doc.setFont('helvetica', 'normal');
+                userSubscriptions.forEach(sub => {
+                    if (y > pageHeight - 10) {
+                        doc.addPage();
+                        y = 20;
+                    }
+                    const subText = `- ${sub.platform}: ${new Intl.NumberFormat('es-CL', { style: 'currency', currency: sub.currency, maximumFractionDigits: 0 }).format(sub.amount)}/${sub.period} - Renueva: ${format(sub.renewalDate, 'dd/MM/yyyy', { locale: es })}`;
+                    doc.text(subText, margin + 5, y);
+                    y += 5;
+                });
+            } else {
+                doc.setFont('helvetica', 'italic');
+                doc.text("Sin suscripciones registradas.", margin + 5, y);
+                y += 5;
+            }
+            
+            y += 8; // Space between users
+        });
+
+        doc.save("reporte_usuarios_suscripciones.pdf");
     };
 
     if (isLoading) return <div>Cargando usuarios...</div>;
 
     return (
         <div className="bg-white p-6 rounded-xl shadow-md">
-            <div className="flex justify-between items-center mb-4 gap-4">
-                <div className="relative flex-grow">
+            <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
+                <div className="relative flex-grow sm:flex-grow-0 sm:w-80">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                     <input
                         type="text"
@@ -65,15 +126,20 @@ const UserManagement: React.FC = () => {
                         className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green"
                     />
                 </div>
-                <select 
-                    value={statusFilter} 
-                    onChange={e => setStatusFilter(e.target.value as any)}
-                    className="border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-brand-green"
-                >
-                    <option value="all">Todos los estados</option>
-                    <option value={UserStatus.Active}>Activo</option>
-                    <option value={UserStatus.Blocked}>Bloqueado</option>
-                </select>
+                <div className="flex items-center gap-2">
+                    <select 
+                        value={statusFilter} 
+                        onChange={e => setStatusFilter(e.target.value as any)}
+                        className="border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-brand-green"
+                    >
+                        <option value="all">Todos los estados</option>
+                        <option value={UserStatus.Active}>Activo</option>
+                        <option value={UserStatus.Blocked}>Bloqueado</option>
+                    </select>
+                    <button onClick={exportUsersToPDF} className="flex items-center gap-2 px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600">
+                        <FileText size={16}/> Exportar PDF
+                    </button>
+                </div>
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left text-gray-500">
